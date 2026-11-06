@@ -1,0 +1,13 @@
+RecordID,Date,Department,Region,Category,Amount,Units,Status
+DEMO-001,2026-10-01,Sales,North,Product A,1200.50,10,Completed
+DEMO-002,2026-10-02,Sales,South,Product B,800.25,5,Completed
+DEMO-003,2026-10-03,Operations,North,Supplies,150.00,3,Completed
+DEMO-004,2026-10-04,Finance,West,Reimbursement,250.75,1,Pending
+DEMO-005,2026-10-05,HR,East,Training,600.00,6,Completed
+DEMO-006,2026-10-06,Sales,North,Refund,-100.50,1,Completed
+DEMO-007,2026-11-01,Sales,West,Product A,1500.00,12,Completed
+DEMO-008,2026-11-02,Operations,South,Supplies,200.00,4,Pending
+DEMO-009,2026-11-03,Finance,North,Reimbursement,125.25,1,Completed
+DEMO-010,2026-11-04,HR,West,Training,400.00,4,Completed
+DEMO-011,2026-11-05,Sales,East,Product B,950.00,7,Pending
+DEMO-012,2026-11-06,Operations,East,Adjustment,,0,Pending

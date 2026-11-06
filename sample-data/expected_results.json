@@ -1,0 +1,20 @@
+{
+  "dataset": "synthetic_company_metrics.csv",
+  "synthetic": true,
+  "currency_assumption": "All Amount values are fictional INR amounts; one currency only.",
+  "row_count": 12,
+  "non_null_amount_count": 11,
+  "amount_sum": "6076.25",
+  "units_sum": 54,
+  "amount_min": "-100.50",
+  "amount_max": "1500.00",
+  "amount_average_exact_fraction": "6076.25 / 11",
+  "amount_average_display_2dp": "552.39",
+  "amount_sum_by_department": {"Sales": "4350.25", "Operations": "350.00", "Finance": "376.00", "HR": "1000.00"},
+  "amount_sum_by_month": {"2026-10": "2901.00", "2026-11": "3175.25"},
+  "completed_row_count": 8,
+  "pending_row_count": 4,
+  "missing_amount_source_rows": [13],
+  "amount_sum_completed": "4675.50",
+  "notes": ["CSV source rows include the header as row 1.", "Missing Amount is not zero; aggregates exclude it and report exclusion.", "These answers refer to this file, not necessarily the application's built-in sample."]
+}

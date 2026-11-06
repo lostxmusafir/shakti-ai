@@ -1,0 +1,16 @@
+.venv/
+.deps/
+.env
+.local-data/
+.test-data/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.db
+*.db-wal
+*.db-shm
+frontend/node_modules/
+frontend/dist/
+tmp/
+*.log
+*.tsbuildinfo

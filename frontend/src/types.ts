@@ -1,0 +1,13 @@
+export type User = { id: string; username: string };
+export type Auth = { user: User; csrf_token: string };
+export type Dataset = {id:string;name:string;classification:'restricted'|'synthetic';status:string;created_at:string;table_count:number;error?:string|null;job_id?:string};
+export type Cell = string|number|boolean|null;
+export type Column = {name:string;type:string;formula:boolean};
+export type DataTable = {name:string;columns:Column[];rows:Cell[][];source_rows:number[];warnings:string[];requires_review:boolean;confirmed:boolean};
+export type Preview = {dataset:Dataset;table:DataTable;table_names:string[];version:number;total_rows:number};
+export type Filter = {column:string;op:string;value:Cell|Cell[]};
+export type Plan = {action:string;column?:string|null;group_by?:string|null;aggregate?:string;filters:Filter[];comparison_filters:Filter[];sort_by?:string|null;descending?:boolean;limit?:number;date_group?:string|null};
+export type Result = {answer:string;value:unknown;columns:string[];rows:Cell[][];method:string;filters:Filter[];source_rows:number[];row_count:number;excluded_rows:number;warnings:string[];dataset_name?:string;table_name?:string;version?:number;question?:string};
+export type Job = {id:string;status:string;error?:string|null;result?:Result|null};
+export type Message = {id:string;question:string;result:Result;created_at:string};
+export type Settings = {model:string;configured:boolean;ocr_available:boolean;cloud_enabled:boolean;usage:{requests:number;input_tokens:number;output_tokens:number;failures:number};storage_path:string;users_count:number};

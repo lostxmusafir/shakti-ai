@@ -1,0 +1,30 @@
+import type { CSSProperties } from 'react';
+const paths:Record<string,string>={
+  grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',
+  upload:'M12 16V3m-5 5 5-5 5 5M4 16v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4',
+  file:'M14 2H5v20h14V7z M14 2v6h5 M8 12h8M8 16h8',
+  image:'M3 3h18v18H3z M3 17l6-6 4 4 3-3 5 5 M16 7h.01',
+  spark:'m12 3 2.4 6.6L21 12l-6.6 2.4L12 21l-2.4-6.6L3 12l6.6-2.4z M21 2v4m-2-2h4',
+  shield:'m12 2 8 3v6c0 5-5 9-8 11-3-2-8-6-8-11V5z M8 11l3 3 5-5',
+  lock:'M6 10h12v11H6z M8 10V6a4 4 0 0 1 8 0v4',
+  chevron:'m9 5 7 7-7 7',
+  down:'m5 9 7 7 7-7',
+  plus:'M12 5v14M5 12h14',
+  send:'m3 3 19 9-19 9 4-9z M7 12h15',
+  settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z M9 3l-1 3-3 1-2 3 2 2-1 3 2 3 3-1 2 3h3l1-3 3-1 2-3-2-2 1-3-2-3-3 1-2-3z',
+  logout:'M9 3H3v18h6 M10 12h12m-5-5 5 5-5 5',
+  check:'m5 12 4 4L19 6',
+  close:'m6 6 12 12M6 18 18 6',
+  warning:'m12 3 10 18H2z M12 9v5m0 3h.01',
+  calculator:'M5 2h14v20H5z M8 5h8v4H8z M8 13h1m6 0h1m-8 4h1m6 0h1',
+  refresh:'M20 11a8 8 0 0 0-14-5L3 9m0-6v6h6 M4 13a8 8 0 0 0 14 5l3-3m0 6v-6h-6',
+  trash:'M3 6h18M9 6V3h6v3 M5 6l1 15h12l1-15 M10 10v7m4-7v7',
+  eye:'M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
+  clock:'M12 8v5l3 2 M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z',
+  columns:'M3 4h18v16H3z M10 4v16 M3 9h18',
+  arrow:'M4 12h16m-6-6 6 6-6 6',
+  cloud:'M7 18a5 5 0 1 1 1-10 6 6 0 0 1 11 2 4 4 0 0 1 0 8z',
+  help:'M9 8a3 3 0 0 1 6 0c0 2-3 2-3 5m0 3h.01 M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z',
+};
+export function Icon({name,size=18,className='',style}:{name:string;size?:number;className?:string;style?:CSSProperties}){return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={className} style={style}><path d={paths[name]||paths.file}/></svg>}
+export function Brand({small=false}:{small?:boolean}){return <span className={`brand-symbol ${small?'small':''}`} aria-hidden="true"><svg viewBox="0 0 40 40" fill="none"><path d="M11 11h19L15 28h15M10 29l5-6" stroke="currentColor" strokeWidth="3.6" strokeLinecap="round" strokeLinejoin="round"/></svg></span>}
