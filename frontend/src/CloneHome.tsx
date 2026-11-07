@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import type { Dataset } from './types';
 import { Icon } from './Icons';
 
@@ -29,47 +28,50 @@ export default function CloneHome({
   totalRows,
   onDetach
 }: CloneHomeProps) {
-  const [showSuggestions, setShowSuggestions] = useState(true);
-
   // Time-aware greeting
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
   const suggestions = [
-    'Explore a company spreadsheet',
-    'Compare department totals',
-    'Find top 5 expenses by amount',
+    'What are the key trends and patterns in this sheet?',
+    'Show top 5 records by highest numbers',
     'Sabse zyada incidents kis port par hain?',
-    'Identify duplicate records and blanks'
+    'Identify duplicates, anomalies or blank entries'
   ];
 
   return (
-    <section className="clone-welcome">
-      <div className="clone-status-pill">
-        <span>Claude 3.5 Sonnet · Spreadsheet Assistant</span>
+    <section className="claude-home-container">
+      {/* Centered Claude Greeting */}
+      <div className="claude-home-hero">
+        <span className="claude-hero-spark" aria-hidden="true">✳</span>
+        <h1 className="claude-hero-title">{greeting}, {username}</h1>
       </div>
 
-      <div className="clone-greeting-block">
-        <span className="clone-spark" aria-hidden="true">✳</span>
-        <h1>{greeting}, {username}</h1>
-      </div>
-
-      <div className="clone-composer">
+      {/* Claude Central Composer */}
+      <div className="claude-composer-box">
         {selectedDataset && (
-          <div className="clone-attached-pill">
-            <span className="attached-icon"><Icon name="file" size={14} /></span>
-            <strong>{selectedDataset.name}</strong>
-            {totalRows !== undefined && <span className="attached-rows">({totalRows.toLocaleString()} rows)</span>}
+          <div className="claude-attached-chip">
+            <span className="chip-icon"><Icon name="file" size={13} /></span>
+            <span className="chip-name">{selectedDataset.name}</span>
+            {totalRows !== undefined && <span className="chip-rows">· {totalRows.toLocaleString()} rows</span>}
             {onDetach && (
-              <button className="pill-remove" onClick={onDetach} title="Detach spreadsheet" aria-label="Detach">
+              <button
+                type="button"
+                className="chip-remove"
+                onClick={onDetach}
+                title="Detach spreadsheet"
+                aria-label="Detach spreadsheet"
+              >
                 ×
               </button>
             )}
           </div>
         )}
+
         <textarea
+          className="claude-textarea"
           aria-label="Ask Claude about your spreadsheet"
-          placeholder={selectedDataset ? `Ask Claude anything about ${selectedDataset.name} in English or Hinglish...` : "How can Claude help you with your spreadsheets today?"}
+          placeholder={selectedDataset ? `Ask Claude anything about ${selectedDataset.name}...` : 'How can Claude help you with your spreadsheets today?'}
           value={draft}
           onChange={e => setDraft(e.target.value)}
           maxLength={2000}
@@ -83,20 +85,29 @@ export default function CloneHome({
             }
           }}
         />
-        <div className="clone-composer-bar">
-          <div className="composer-bar-left">
-            <button className="attach-button" onClick={onUpload} title="Attach CSV or Excel spreadsheet" disabled={busy}>
-              <Icon name="upload" size={14} />
+
+        <div className="claude-composer-controls">
+          <div className="composer-controls-left">
+            <button
+              type="button"
+              className="claude-attach-pill"
+              onClick={onUpload}
+              title="Attach CSV or Excel spreadsheet"
+              disabled={busy}
+            >
+              <Icon name="upload" size={13} />
               <span>Attach sheet</span>
             </button>
-            <span className="model-tag">
-              <span className="clone-spark-icon" style={{ color: '#b6613c', fontSize: '13px' }}>✳</span>
+            <div className="claude-model-badge">
+              <span className="claude-spark-icon">✳</span>
               <span>Claude 3.5 Sonnet</span>
-            </span>
+            </div>
           </div>
+
           <button
-            aria-label="Start analysis"
-            className={`send-circle ${draft.trim() ? 'active' : ''}`}
+            type="button"
+            aria-label="Send to Claude"
+            className={`claude-send-circle ${draft.trim() ? 'active' : ''}`}
             onClick={() => {
               if (onSubmitDraft && draft.trim()) {
                 onSubmitDraft();
@@ -105,69 +116,46 @@ export default function CloneHome({
               }
             }}
             disabled={busy || !draft.trim()}
-            title={draft.trim() ? "Send to Claude" : "Type a question"}
+            title={draft.trim() ? 'Send to Claude' : 'Type a question'}
           >
-            <Icon name="arrow" size={18} />
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="19" x2="12" y2="5" />
+              <polyline points="5 12 12 5 19 12" />
+            </svg>
           </button>
         </div>
       </div>
 
-      <div className="clone-home-tools">
-        <button
-          className="tool-toggle"
-          onClick={() => setShowSuggestions(!showSuggestions)}
-        >
-          {showSuggestions ? 'Hide suggestions' : 'Get started with an example'}
-        </button>
-        <div className="tool-actions">
+      {/* Suggestion Cards */}
+      <div className="claude-suggestions-grid">
+        {suggestions.map(label => (
           <button
-            className="tool-btn"
-            onClick={onUpload}
-            disabled={busy}
-            title="Upload CSV, XLSX or clear table images"
+            key={label}
+            type="button"
+            className="claude-suggestion-card"
+            onClick={() => {
+              setDraft(label);
+              if (!hasDatasets) {
+                onUpload();
+              }
+            }}
           >
-            <Icon name="upload" size={14} />
-            <span>Add content</span>
+            <span className="suggestion-spark">✳</span>
+            <span className="suggestion-text">{label}</span>
           </button>
-        </div>
+        ))}
       </div>
 
-      {showSuggestions && (
-        <div className="clone-suggestions">
-          {suggestions.map(label => (
-            <button
-              key={label}
-              onClick={() => {
-                setDraft(label);
-                if (!hasDatasets) {
-                  onUpload();
-                }
-              }}
-            >
-              <span className="suggestion-spark">✳</span>
-              <span>{label}</span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      <div className="clone-help-card">
-        <div className="help-icon"><Icon name="shield" size={18} /></div>
-        <div className="help-text">
-          <strong>No dummy data — Real company datasets</strong>
-          <p>Upload your real CSV, Excel (.xlsx), or clear table images. Files are stored locally in SQLite and calculations run on the full table with verifiable source evidence.</p>
-        </div>
-      </div>
-
+      {/* Clean Call To Action if no spreadsheet uploaded yet */}
       {!hasDatasets && (
-        <div className="clone-cta-row">
-          <button className="button primary" onClick={onUpload} disabled={busy}>
-            <Icon name="upload" size={16} />
-            <span>Upload your first spreadsheet</span>
+        <div className="claude-cta-group">
+          <button type="button" className="claude-pill-cta primary" onClick={onUpload} disabled={busy}>
+            <Icon name="upload" size={15} />
+            <span>Upload CSV or Excel sheet</span>
           </button>
-          <button className="button secondary" onClick={onSample} disabled={busy}>
-            <Icon name="grid" size={16} />
-            <span>Or load synthetic sample</span>
+          <button type="button" className="claude-pill-cta secondary" onClick={onSample} disabled={busy}>
+            <Icon name="grid" size={15} />
+            <span>Load demo firewall dataset</span>
           </button>
         </div>
       )}

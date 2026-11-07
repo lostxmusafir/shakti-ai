@@ -270,14 +270,17 @@ export default function App() {
     }
   }
 
-  async function removeDataset() {
-    if (!selected) return;
-    if (!window.confirm(`Delete “${selected.name}”? Its source file and conversations will be removed.`)) return;
+  async function removeDataset(targetId?: string) {
+    const d = datasets.find(x => x.id === (targetId || selectedId));
+    if (!d) return;
+    if (!window.confirm(`Delete “${d.name}”? Its source file and conversations will be removed.`)) return;
     setBusy(true);
     try {
-      await api(`/datasets/${selected.id}`, { method: 'DELETE' });
-      setSelectedId('');
-      setPreview(null);
+      await api(`/datasets/${d.id}`, { method: 'DELETE' });
+      if (selectedId === d.id) {
+        setSelectedId('');
+        setPreview(null);
+      }
       setRefresh(x => x + 1);
     } catch (e) {
       setNotice({ kind: 'error', text: errorText(e) });
@@ -431,30 +434,44 @@ export default function App() {
             <p className="sidebar-empty">Upload a CSV, XLSX, or table image to begin.</p>
           ) : (
             datasets.map(d => (
-              <button
+              <div
                 key={d.id}
-                className={`dataset-link ${d.id === selectedId ? 'selected' : ''}`}
-                onClick={() => selectDataset(d.id)}
+                className={`dataset-item-row ${d.id === selectedId ? 'selected' : ''}`}
+                style={{ display: 'flex', alignItems: 'center', width: '100%' }}
               >
-                <span className={`file-symbol ${fileIsImage(d.name) ? 'orange' : ''}`}>
-                  <Icon name={fileIsImage(d.name) ? 'image' : 'file'} size={16} />
-                </span>
-                <span className="dataset-link-text">
-                  <strong title={d.name}>{d.name}</strong>
-                  <span>
-                    {['queued', 'running'].includes(d.status)
-                      ? 'Processing…'
-                      : d.status === 'failed'
-                      ? 'Needs attention'
-                      : `${d.table_count || 1} ${(d.table_count || 1) === 1 ? 'table' : 'tables'} · ${formatDate(d.created_at)}`}
+                <button
+                  className={`dataset-link ${d.id === selectedId ? 'selected' : ''}`}
+                  onClick={() => selectDataset(d.id)}
+                  style={{ flex: 1 }}
+                >
+                  <span className={`file-symbol ${fileIsImage(d.name) ? 'orange' : ''}`}>
+                    <Icon name={fileIsImage(d.name) ? 'image' : 'file'} size={16} />
                   </span>
-                </span>
-                {d.classification === 'synthetic' ? (
-                  <span className="tiny-dot synthetic" title="Synthetic data" />
-                ) : (
-                  <Icon name="lock" size={12} />
-                )}
-              </button>
+                  <span className="dataset-link-text">
+                    <strong title={d.name}>{d.name}</strong>
+                    <span>
+                      {['queued', 'running'].includes(d.status)
+                        ? 'Processing…'
+                        : d.status === 'failed'
+                        ? 'Needs attention'
+                        : `${d.table_count || 1} ${(d.table_count || 1) === 1 ? 'table' : 'tables'} · ${formatDate(d.created_at)}`}
+                    </span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="icon-button"
+                  style={{ opacity: 0.5, padding: '4px', marginRight: '4px' }}
+                  onClick={e => {
+                    e.stopPropagation();
+                    void removeDataset(d.id);
+                  }}
+                  title={`Delete ${d.name}`}
+                  disabled={busy || !!activeJob}
+                >
+                  <Icon name="trash" size={13} />
+                </button>
+              </div>
             ))
           )}
         </div>
@@ -495,40 +512,47 @@ export default function App() {
 
       {/* Main Shell */}
       <div className="main-shell">
-        <header className="topbar">
-          <div className="breadcrumb">
-            <span className="clone-spark" style={{ fontSize: '18px', marginRight: '6px' }}>✳</span>
-            <span>Claude Excel Assistant</span>
-            <Icon name="chevron" size={12} />
-            <strong>{selected ? selected.name : 'New conversation'}</strong>
+        <header className="claude-topbar">
+          <div className="claude-topbar-left">
+            <button
+              className="claude-icon-btn"
+              onClick={() => setPinned(!pinned)}
+              title={pinned ? "Collapse sidebar" : "Expand sidebar"}
+              aria-label="Toggle sidebar"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <line x1="9" y1="3" x2="9" y2="21" />
+              </svg>
+            </button>
+            <div className="claude-chat-title">
+              <span>{selected ? selected.name : 'New chat'}</span>
+              <Icon name="chevron" size={12} />
+            </div>
           </div>
-          <div className="topbar-right">
+
+          <div className="claude-topbar-right">
             {selected && preview && (
               <button
-                className="action-pill"
+                className="claude-chip-btn"
                 onClick={() => setShowPreviewModal(true)}
                 title="View spreadsheet data"
               >
-                <Icon name="columns" size={14} />
-                <span>Preview sheet ({preview.total_rows.toLocaleString()} rows)</span>
+                <Icon name="file" size={13} />
+                <span>{preview.total_rows.toLocaleString()} rows</span>
               </button>
             )}
-            {selected && (
-              <button
-                className="icon-button"
-                onClick={() => void removeDataset()}
-                disabled={busy || !!activeJob}
-                title="Remove this spreadsheet"
-              >
-                <Icon name="trash" size={15} />
-              </button>
-            )}
-            <span className="pilot-badge">EXCEL COPILOT</span>
-            <button className="connection-state" onClick={() => setShowSettings(true)}>
-              <span className={`status-dot ${cloudReady ? 'online' : 'offline'}`} />
-              <span>{cloudReady ? 'Claude 3.5 Sonnet' : 'Configure API Key'}</span>
-              <Icon name="down" size={11} />
+            <button
+              className="claude-icon-btn"
+              onClick={() => setShowSettings(true)}
+              title="Settings & Model"
+              aria-label="Settings"
+            >
+              <Icon name="settings" size={16} />
             </button>
+            <div className="claude-user-avatar" title={auth.user.username}>
+              {auth.user.username.slice(0, 1).toUpperCase()}
+            </div>
           </div>
         </header>
 
@@ -564,78 +588,54 @@ export default function App() {
           ) : (
             /* Claude Chat Container */
             <div className="claude-chat-container">
-              {/* Top attached sheet banner */}
-              <div className="claude-sheet-topbar">
-                <div className="claude-sheet-info">
-                  <span className="clone-spark-icon" style={{ color: '#b6613c', fontSize: '18px' }}>✳</span>
-                  <strong>{selected ? selected.name : 'Spreadsheet Assistant'}</strong>
-                  {preview && (
-                    <span className="sheet-badge">{preview.total_rows.toLocaleString()} rows</span>
-                  )}
-                </div>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  {preview && (
-                    <button
-                      className="action-pill"
-                      onClick={() => setShowPreviewModal(true)}
-                      title="Inspect spreadsheet columns and rows"
-                    >
-                      <Icon name="columns" size={13} />
-                      <span>Preview sheet</span>
-                    </button>
-                  )}
-                  <button
-                    className="action-pill"
-                    onClick={() => fileRef.current?.click()}
-                    disabled={busy || !!activeJob}
-                    title="Attach another spreadsheet"
-                  >
-                    <Icon name="upload" size={13} />
-                    <span>Change sheet</span>
-                  </button>
-                </div>
-              </div>
-
               {/* Chat Message Stream */}
               <div className="claude-conversation-list" aria-live="polite">
                 {messages.map(m => (
-                  <div key={m.id} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                    <div className="claude-user-bubble">
-                      {m.question}
+                  <div key={m.id} className="claude-exchange">
+                    <div className="claude-user-turn">
+                      <div className="claude-user-bubble">
+                        {m.question}
+                      </div>
                     </div>
                     <div className="claude-assistant-turn">
-                      {m.result && <ResultCard result={m.result} />}
+                      {m.result && (
+                        <ResultCard
+                          result={m.result}
+                          onRetry={() => void ask(undefined, m.question)}
+                        />
+                      )}
                     </div>
                   </div>
                 ))}
 
                 {activeJob?.kind === 'analysis' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                    <div className="claude-user-bubble">
-                      {activeJob.question}
+                  <div className="claude-exchange">
+                    <div className="claude-user-turn">
+                      <div className="claude-user-bubble">
+                        {activeJob.question}
+                      </div>
                     </div>
-                    <div className="claude-thinking-state">
-                      <span className="sparkle-spin">✳</span>
-                      <span>{jobStatus === 'queued' ? 'Queued for calculation…' : 'Claude is analyzing your spreadsheet…'}</span>
+                    <div className="claude-assistant-turn">
+                      <div className="claude-thinking-turn">
+                        <span className="claude-spark-icon spinning" aria-hidden="true">✳</span>
+                        <span>{jobStatus === 'queued' ? 'Queued for calculation…' : 'Claude is analyzing your spreadsheet…'}</span>
+                      </div>
                     </div>
                   </div>
                 )}
 
                 {failedJob && (
-                  <div className="job-error" role="alert">
+                  <div className="claude-error-banner" role="alert">
                     <Icon name="warning" size={16} />
-                    <div>
-                      <strong>Could not complete this analysis</strong>
-                      <p>{failedJob.error}</p>
-                      <button
-                        className="text-button"
-                        onClick={() => void retry(failedJob.id, failedJob.kind, failedJob.question)}
-                        disabled={busy || !!activeJob}
-                      >
-                        <Icon name="refresh" size={13} />
-                        <span>Retry</span>
-                      </button>
-                    </div>
+                    <span>{failedJob.error}</span>
+                    <button
+                      className="claude-ghost-btn"
+                      onClick={() => void retry(failedJob.id, failedJob.kind, failedJob.question)}
+                      disabled={busy || !!activeJob}
+                    >
+                      <Icon name="refresh" size={13} />
+                      <span>Retry</span>
+                    </button>
                   </div>
                 )}
                 <div ref={messagesEnd} />
@@ -643,26 +643,39 @@ export default function App() {
 
               {/* Floating Bottom Composer */}
               <div className="claude-bottom-dock">
-                <div className="clone-composer" style={{ margin: 0, width: '100%' }}>
+                <div className="claude-composer-box">
                   {selected && (
-                    <div className="clone-attached-pill" style={{ marginBottom: '8px' }}>
-                      <span className="attached-icon"><Icon name="file" size={13} /></span>
-                      <strong style={{ fontSize: '13px' }}>{selected.name}</strong>
-                      {preview && <span className="attached-rows">({preview.total_rows.toLocaleString()} rows)</span>}
+                    <div className="claude-attached-chip">
+                      <span className="chip-icon"><Icon name="file" size={13} /></span>
+                      <span className="chip-name">{selected.name}</span>
+                      {preview && <span className="chip-rows">· {preview.total_rows.toLocaleString()} rows</span>}
                       <button
                         type="button"
-                        className="action-pill"
-                        style={{ padding: '2px 8px', fontSize: '11px', marginLeft: '6px' }}
+                        className="chip-action"
                         onClick={() => setShowPreviewModal(true)}
+                        title="Preview table"
                       >
-                        View table
+                        Preview
+                      </button>
+                      <button
+                        type="button"
+                        className="chip-remove"
+                        onClick={() => {
+                          setSelectedId('');
+                          setPreview(null);
+                        }}
+                        title="Detach spreadsheet"
+                        aria-label="Detach spreadsheet"
+                      >
+                        ×
                       </button>
                     </div>
                   )}
                   <textarea
                     ref={questionRef}
+                    className="claude-textarea"
                     aria-label="Ask Claude about your spreadsheet"
-                    placeholder={canAsk ? "Reply to Claude or ask another question about your sheet..." : "Attach a sheet and configure key to ask..."}
+                    placeholder={canAsk ? "Reply to Claude..." : "Attach a sheet and configure API key to ask..."}
                     value={question}
                     onChange={e => setQuestion(e.target.value)}
                     disabled={!canAsk || busy || !!activeJob}
@@ -675,11 +688,11 @@ export default function App() {
                       }
                     }}
                   />
-                  <div className="clone-composer-bar">
-                    <div className="composer-bar-left">
+                  <div className="claude-composer-controls">
+                    <div className="composer-controls-left">
                       <button
                         type="button"
-                        className="attach-button"
+                        className="claude-attach-pill"
                         onClick={() => fileRef.current?.click()}
                         title="Attach CSV or Excel spreadsheet"
                         disabled={busy || !!activeJob}
@@ -687,19 +700,23 @@ export default function App() {
                         <Icon name="upload" size={13} />
                         <span>Attach sheet</span>
                       </button>
-                      <span className="model-tag">
-                        <span className="clone-spark-icon" style={{ color: '#b6613c', fontSize: '13px' }}>✳</span>
+                      <div className="claude-model-badge">
+                        <span className="claude-spark-icon">✳</span>
                         <span>Claude 3.5 Sonnet</span>
-                      </span>
+                      </div>
                     </div>
                     <button
-                      aria-label="Send question"
-                      className={`send-circle ${question.trim() ? 'active' : ''}`}
+                      type="button"
+                      aria-label="Send to Claude"
+                      className={`claude-send-circle ${question.trim() ? 'active' : ''}`}
                       disabled={!canAsk || !question.trim() || busy || !!activeJob}
                       onClick={() => void ask()}
                       title="Send to Claude"
                     >
-                      <Icon name="arrow" size={18} />
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="12" y1="19" x2="12" y2="5" />
+                        <polyline points="5 12 12 5 19 12" />
+                      </svg>
                     </button>
                   </div>
                 </div>

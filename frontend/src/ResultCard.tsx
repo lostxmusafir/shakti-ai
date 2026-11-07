@@ -1,68 +1,158 @@
 import { useState } from 'react';
 import type { Result } from './types';
 import { Icon } from './Icons';
+import MarkdownView from './MarkdownView';
 
-export default function ResultCard({result, onRetry}:{result:Result; onRetry?:()=>void}){
- const [copied, setCopied] = useState(false);
- const [showEvidence, setShowEvidence] = useState(false);
+export default function ResultCard({ result, onRetry }: { result: Result; onRetry?: () => void }) {
+  const [copied, setCopied] = useState(false);
+  const [showEvidence, setShowEvidence] = useState(false);
+  const [feedback, setFeedback] = useState<'up' | 'down' | null>(null);
 
- function copyAnswer(){
-   const text = `${result.answer}\n\nCalculation: ${result.method}\nTable: ${result.table_name || 'Selected table'} (${result.row_count || 0} rows included)`;
-   navigator.clipboard.writeText(text).then(()=>{
-     setCopied(true);
-     setTimeout(()=>setCopied(false), 2000);
-   }).catch(()=>{});
- }
+  function copyAnswer() {
+    const text = result.answer;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  }
 
- return <article className="result-card">
-  <div className="result-label">
-   <div className="result-author">
-     <span className="clone-spark-icon" aria-hidden="true">✳</span>
-     <strong>Copilot · Excel Assistant</strong>
-   </div>
-   <span className="verified-tag"><Icon name="check" size={12}/>{(result as any).engine === 'cloud' || result.method?.toLowerCase().includes('copilot') || result.method?.toLowerCase().includes('cloud') ? 'Copilot for Excel' : 'Calculated locally'}</span>
-  </div>
+  return (
+    <div className="claude-response-turn">
+      {/* Claude Message Header */}
+      <div className="claude-response-header">
+        <span className="claude-spark-icon" aria-hidden="true">✳</span>
+        <span className="claude-author-name">Claude</span>
+      </div>
 
-  <p className="answer-text">{result.answer}</p>
+      {/* Formatted Markdown Content */}
+      <div className="claude-response-body">
+        <MarkdownView content={result.answer} />
 
-  {result.rows?.length>0 && result.columns?.length>0 && <div className="result-table-wrap">
-   <table className="result-table">
-     <thead><tr>{result.columns.map((c,i)=><th key={`${c}-${i}`}>{c}</th>)}</tr></thead>
-     <tbody>{result.rows.slice(0,25).map((r,i)=><tr key={i}>{r.map((c,j)=><td key={j}>{c===null?<span className="null-value">—</span>:String(c)}</td>)}</tr>)}</tbody>
-   </table>
-   {result.rows.length>25&&<p className="table-caption">Showing 25 of {result.rows.length} returned rows.</p>}
-  </div>}
+        {/* Supplementary Table if data rows returned */}
+        {result.rows && result.rows.length > 0 && result.columns && result.columns.length > 0 && (
+          <div className="claude-table-wrap">
+            <table className="claude-table">
+              <thead>
+                <tr>
+                  {result.columns.map((c, i) => (
+                    <th key={`${c}-${i}`}>{c}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {result.rows.slice(0, 20).map((r, i) => (
+                  <tr key={i}>
+                    {r.map((c, j) => (
+                      <td key={j}>{c === null ? '—' : String(c)}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {result.rows.length > 20 && (
+              <p className="claude-table-caption">
+                Showing 20 of {result.rows.length} records.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
 
-  <div className="result-foot">
-   <span><Icon name="file" size={13}/>{result.table_name||'Selected table'}</span>
-   <span>{result.row_count?.toLocaleString()} rows included</span>
-  </div>
+      {/* Claude Action Toolbar */}
+      <div className="claude-action-bar">
+        <button
+          className="claude-ghost-btn"
+          onClick={copyAnswer}
+          title="Copy response"
+          aria-label="Copy response"
+        >
+          <Icon name={copied ? 'check' : 'file'} size={14} />
+          <span>{copied ? 'Copied' : 'Copy'}</span>
+        </button>
 
-  <div className="result-actions-bar">
-   <button className="action-pill" onClick={copyAnswer} title="Copy answer to clipboard">
-     <Icon name={copied ? "check" : "file"} size={13}/>
-     <span>{copied ? "Copied" : "Copy"}</span>
-   </button>
-   <button className="action-pill" onClick={()=>setShowEvidence(!showEvidence)}>
-     <Icon name="eye" size={13}/>
-     <span>{showEvidence ? "Hide evidence" : "Calculation & evidence"}</span>
-   </button>
-   {onRetry && <button className="action-pill" onClick={onRetry} title="Recalculate">
-     <Icon name="refresh" size={13}/>
-     <span>Retry</span>
-   </button>}
-  </div>
+        {onRetry && (
+          <button
+            className="claude-ghost-btn"
+            onClick={onRetry}
+            title="Retry"
+            aria-label="Retry"
+          >
+            <Icon name="refresh" size={14} />
+          </button>
+        )}
 
-  {showEvidence && <div className="evidence-body">
-   <dl>
-     <dt>Method</dt><dd>{result.method}</dd>
-     <dt>Dataset</dt><dd>{result.dataset_name||'Current dataset'} {result.version?`· version ${result.version}`:''}</dd>
-     <dt>Excluded rows</dt><dd>{result.excluded_rows?.toLocaleString()||0}</dd>
-     <dt>Filters</dt><dd>{result.filters?.length?result.filters.map((f,i)=><span className="evidence-filter" key={i}>{f.column} {f.op} {Array.isArray(f.value)?f.value.join(', '):String(f.value??'')}</span>):'No filters applied'}</dd>
-     <dt>Source rows</dt><dd className="source-rows">{result.source_rows?.join(', ')||'None'}</dd>
-   </dl>
-  </div>}
+        <button
+          className={`claude-ghost-btn icon-only ${feedback === 'up' ? 'active' : ''}`}
+          onClick={() => setFeedback(feedback === 'up' ? null : 'up')}
+          title="Good response"
+          aria-label="Thumbs up"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
+          </svg>
+        </button>
 
-  {result.warnings?.map((w,i)=><div key={i} className="result-warning"><Icon name="warning" size={14}/>{w}</div>)}
- </article>;
+        <button
+          className={`claude-ghost-btn icon-only ${feedback === 'down' ? 'active' : ''}`}
+          onClick={() => setFeedback(feedback === 'down' ? null : 'down')}
+          title="Bad response"
+          aria-label="Thumbs down"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/>
+          </svg>
+        </button>
+
+        {/* Subtle Analysis Evidence Disclosure */}
+        <button
+          className="claude-evidence-toggle"
+          onClick={() => setShowEvidence(!showEvidence)}
+          title="View verified dataset details"
+        >
+          <span>{result.row_count ? `${result.row_count.toLocaleString()} rows verified` : 'Evidence details'}</span>
+          <Icon name="chevron" size={11} className={showEvidence ? 'rotate-180' : ''} />
+        </button>
+      </div>
+
+      {/* Subtle Evidence Drawer */}
+      {showEvidence && (
+        <div className="claude-evidence-drawer">
+          <div className="claude-evidence-grid">
+            <div>
+              <span className="evidence-label">Method</span>
+              <span className="evidence-val">{result.method}</span>
+            </div>
+            <div>
+              <span className="evidence-label">Table</span>
+              <span className="evidence-val">{result.table_name || 'Active sheet'}</span>
+            </div>
+            {result.excluded_rows !== undefined && result.excluded_rows > 0 && (
+              <div>
+                <span className="evidence-label">Excluded rows</span>
+                <span className="evidence-val">{result.excluded_rows}</span>
+              </div>
+            )}
+            {result.filters && result.filters.length > 0 && (
+              <div>
+                <span className="evidence-label">Filters</span>
+                <span className="evidence-val">
+                  {result.filters.map(f => `${f.column} ${f.op} ${Array.isArray(f.value) ? f.value.join(', ') : f.value}`).join('; ')}
+                </span>
+              </div>
+            )}
+          </div>
+          {result.warnings && result.warnings.length > 0 && (
+            <div className="claude-evidence-notes">
+              <strong>Notes:</strong>
+              <ul>
+                {result.warnings.map((w, i) => (
+                  <li key={i}>{w}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
