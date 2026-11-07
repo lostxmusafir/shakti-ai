@@ -1,0 +1,270 @@
+/* Source palette: sahaj-b/claudeAI-frontend-clone, tailwind.config.js.
+   The data review panel is a Zydrakon extension to the source chat layout. */
+:root{--navy:#24231f;--navy-dark:#1a1915;--indigo:#b6613c;--indigo-light:#cc805b;--teal:#a7b9ae;--ink:#e5e5e2;--muted:#a6a39a;--pale:#393937;--bg-subtle:#2c2b28;--line:#52514b;--line-dark:#68665e;--amber:#413529;--amber-border:#68553b}
+body,.app-shell,.main-shell,.workspace-main,.auth-page{background:#2c2b28;color:#e5e5e2}.sidebar{background:#24231f;border-right:1px solid #3a3933}.brand{font-family:Georgia,serif}.brand-ai{color:#c98262}.workspace-label,.user-profile{border-color:#3a3933}.topbar{background:#2c2b28;border-color:#3a3933}.page-heading h1,.clone-welcome h1,.auth-form-wrap h2{font-family:Georgia,serif;font-weight:400}.button.primary{background:#b6613c;border-color:#b6613c}.button.primary:hover{background:#ca7954}.button.secondary,.mode-switch,.mode-switch button.active,.dataset-toolbar,.table-tabs,.panel-heading,.table-footer,.confirm-footer,.composer-section,.calculator-section,.filter-row input,.filter-row select{background:#302f2b;color:#e5e5e2}.data-panel,.analysis-panel{background:#2c2b28;border-color:#52514b;box-shadow:none}.data-panel{grid-column:2;grid-row:1}.analysis-panel{grid-column:1;grid-row:1}.workspace-grid{grid-template-columns:minmax(420px,1.2fr) minmax(360px,1fr);gap:22px}.panel-heading h2{color:#e5e5e2}.panel-icon,.panel-icon.purple,.assistant-orb{background:#393937;color:#c98262}.data-table th,.data-table td,.data-table thead th{background:#2f2f2b;color:#e5e5e2;border-color:#44433d}.data-table tbody tr:nth-child(even) td{background:#292824}.data-table .row-number{color:#a6a39a}.question-composer,.question-composer textarea{background:#393937;color:#e5e5e2}.question-composer{border-color:#52514b}.question-suggestions button,.sample-button,.result-card,.result-table th,.result-table td{background:#302f2b;color:#e5e5e2;border-color:#52514b}.send-button{background:#b6613c}.user-question{background:#393937;color:#e5e5e2;border-radius:12px}.user-question p{color:#e5e5e2}.modal,.modal-header,.modal-body,.settings-section,.settings-card{background:#2c2b28;color:#e5e5e2}.modal input,.modal select,.auth-form input,.calc-grid select,.cell-input{background:#393937;color:#e5e5e2;border-color:#52514b}.auth-story{background:#24231f}.auth-story h1 em{color:#c98262}.auth-form-side{background:#2c2b28}.auth-note,.local-mode-note,.notice.subtle{background:#34332e;color:#c1beb5}.dataset-link.selected{background:#393937}.sidebar-upload{border-color:#52514b;color:#e5e5e2}.workspace-footer{color:#a6a39a}.clone-welcome{max-width:720px;margin:65px auto 80px}.clone-welcome h1{text-align:center;font-size:48px;margin:32px 0}.clone-welcome .clone-composer textarea{outline:none}.clone-home-tools{margin:0 10px;padding:13px 15px 0;background:#282725;display:flex;justify-content:space-between;gap:10px}.clone-home-tools button{display:flex;align-items:center;gap:5px;background:none;border:0;color:#a6a39a;font:12px system-ui;cursor:pointer}.clone-welcome .clone-suggestions{border-top:0}.clone-welcome .clone-suggestions button{cursor:pointer}.clone-welcome .clone-suggestions button:hover{border-color:#b6613c;color:#e5e5e2}.clone-help{font:13px/1.7 system-ui;color:#a6a39a;text-align:center;margin:20px auto;max-width:510px}.clone-sample{display:flex;align-items:center;justify-content:center;gap:10px;margin:25px auto;background:#393937;border:1px solid #52514b;border-radius:8px;color:#e5e5e2;padding:12px 18px;cursor:pointer}.clone-data-toggle{display:flex;gap:7px;align-items:center}.app-shell.chat-focus .workspace-grid{display:block;max-width:850px;margin:auto}.app-shell.chat-focus .data-panel{display:none}.app-shell.chat-focus .analysis-panel{min-height:650px}.clone-home-view .page-heading{display:none}.clone-home-view .workspace-grid{display:none}.nav-link.new-chat{color:#c98262}.auth-story-footer{color:#a6a39a}@media(max-width:1100px){.workspace-grid{display:flex;flex-direction:column}.analysis-panel{order:2}.data-panel{order:1}.clone-welcome h1{font-size:36px}}@media(max-width:600px){.clone-welcome{margin:20px auto}.clone-welcome h1{font-size:29px}.clone-suggestions{flex-direction:column}.clone-welcome .clone-composer{padding:15px}.clone-home-tools{font-size:11px}.app-shell.chat-focus .analysis-panel{min-height:500px}}
+
+/* Claude Clone Sidebar & Pinning Styles */
+.app-shell.unpinned .sidebar {
+  width: 68px;
+  padding: 16px 8px;
+}
+.app-shell.unpinned .sidebar .brand-text,
+.app-shell.unpinned .sidebar .nav-link span,
+.app-shell.unpinned .sidebar .sidebar-section-heading,
+.app-shell.unpinned .sidebar .dataset-link-text,
+.app-shell.unpinned .sidebar .sidebar-upload span,
+.app-shell.unpinned .sidebar .privacy-sidebar,
+.app-shell.unpinned .sidebar .user-info {
+  display: none;
+}
+.app-shell.unpinned .sidebar .dataset-link {
+  justify-content: center;
+  padding: 10px 0;
+}
+.app-shell.unpinned .sidebar .sidebar-upload {
+  justify-content: center;
+  padding: 10px 0;
+}
+.app-shell.unpinned .sidebar .user-profile {
+  justify-content: center;
+}
+.app-shell.unpinned .main-shell {
+  width: calc(100% - 68px);
+}
+
+.sidebar-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.pin-btn {
+  background: transparent;
+  border: none;
+  color: #a6a39a;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.pin-btn:hover {
+  background: #393937;
+  color: #e5e5e2;
+}
+
+/* Claude Clone Result Card Styles */
+.result-author {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #e5e5e2;
+}
+.result-author .clone-spark-icon {
+  color: #b6613c;
+  font-size: 16px;
+}
+.result-actions-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid #3a3933;
+}
+.action-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #282725;
+  border: 1px solid #52514b;
+  border-radius: 6px;
+  color: #a6a39a;
+  padding: 5px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.action-pill:hover {
+  background: #393937;
+  color: #e5e5e2;
+  border-color: #b6613c;
+}
+
+/* Clone Home Specific Elements */
+.clone-status-pill {
+  text-align: center;
+  margin-bottom: 18px;
+}
+.clone-status-pill span {
+  display: inline-block;
+  background: #282725;
+  border: 1px solid #52514b;
+  color: #a6a39a;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+}
+.clone-greeting-block {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+.clone-greeting-block h1 {
+  margin: 0;
+  font-size: clamp(32px, 5vw, 46px);
+  font-family: Georgia, 'Zilla Slab', serif;
+  font-weight: 400;
+  color: #e5e5e2;
+}
+.clone-spark {
+  color: #b6613c;
+  font-size: 44px;
+  line-height: 1;
+}
+.clone-composer-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #44433d;
+}
+.model-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #a6a39a;
+}
+.send-circle {
+  background: #52514b;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.send-circle.active {
+  background: #b6613c;
+}
+.send-circle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.clone-home-tools {
+  background: #282725;
+  border: 1px solid #3a3933;
+  border-bottom: none;
+  margin: 0 8px;
+  padding: 10px 14px;
+  border-radius: 12px 12px 0 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.tool-toggle {
+  background: transparent;
+  border: none;
+  color: #a6a39a;
+  font-size: 12px;
+  cursor: pointer;
+}
+.tool-toggle:hover {
+  color: #e5e5e2;
+}
+.tool-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: #393937;
+  border: 1px solid #52514b;
+  color: #e5e5e2;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.tool-btn:hover {
+  background: #44433d;
+  border-color: #b6613c;
+}
+
+.clone-suggestions {
+  background: #282725;
+  border: 1px solid #3a3933;
+  border-top: none;
+  margin: 0 8px 24px;
+  padding: 12px;
+  border-radius: 0 0 12px 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+}
+.clone-suggestions button {
+  background: #21201c;
+  border: 1px solid #3a3933;
+  border-radius: 8px;
+  color: #bcb9b0;
+  padding: 10px 12px;
+  font-size: 13px;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.clone-suggestions button:hover {
+  border-color: #b6613c;
+  color: #e5e5e2;
+  background: #2a2924;
+}
+.suggestion-spark {
+  color: #b6613c;
+  font-size: 12px;
+}
+
+.clone-help-card {
+  display: flex;
+  gap: 14px;
+  background: #2f2f2b;
+  border: 1px solid #52514b;
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin: 20px auto;
+  max-width: 680px;
+}
+.help-icon {
+  color: #b6613c;
+  margin-top: 2px;
+}
+.help-text strong {
+  display: block;
+  font-size: 14px;
+  color: #e5e5e2;
+  margin-bottom: 4px;
+}
+.help-text p {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #a6a39a;
+  margin: 0;
+}
+
+.clone-cta-row {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 24px;
+}
