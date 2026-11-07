@@ -43,16 +43,55 @@ Keep interpretation short and factual. Return only a valid JSON object matching 
 def normalize_plan_dict(data: dict) -> dict:
     if not isinstance(data, dict):
         return {}
-    if isinstance(data.get('group_by'), list):
-        data['group_by'] = data['group_by'][0] if data['group_by'] else None
-    if data.get('filters') is None:
-        data['filters'] = []
-    if data.get('comparison_filters') is None:
-        data['comparison_filters'] = []
-    if data.get('limit') is None:
-        data['limit'] = 20
-    if data.get('descending') is None:
-        data['descending'] = False
+
+    valid_actions = {
+        "select", "sum", "count", "average", "min", "max",
+        "group", "missing", "duplicates", "percentage", "percentage_change", "compare"
+    }
+
+    action = data.get("action")
+    if action not in valid_actions:
+        if data.get("group_by"):
+            data["action"] = "group"
+        elif data.get("aggregate") in valid_actions:
+            data["action"] = data["aggregate"]
+        elif data.get("clarification"):
+            data["action"] = "count"
+        else:
+            data["action"] = "select"
+
+    if isinstance(data.get("group_by"), list):
+        data["group_by"] = data["group_by"][0] if data["group_by"] else None
+    if isinstance(data.get("column"), list):
+        data["column"] = data["column"][0] if data["column"] else None
+
+    raw_filters = data.get("filters")
+    if not isinstance(raw_filters, list):
+        data["filters"] = []
+    else:
+        clean_filters = []
+        for f in raw_filters:
+            if isinstance(f, dict) and "column" in f and "op" in f:
+                clean_filters.append(f)
+        data["filters"] = clean_filters
+
+    raw_comp = data.get("comparison_filters")
+    if not isinstance(raw_comp, list):
+        data["comparison_filters"] = []
+    else:
+        clean_comp = []
+        for f in raw_comp:
+            if isinstance(f, dict) and "column" in f and "op" in f:
+                clean_comp.append(f)
+        data["comparison_filters"] = clean_comp
+
+    if data.get("limit") is None or not isinstance(data.get("limit"), int) or data.get("limit") < 1:
+        data["limit"] = 20
+    if data.get("descending") is None or not isinstance(data.get("descending"), bool):
+        data["descending"] = False
+    if not isinstance(data.get("aggregate"), str) or data.get("aggregate") not in {"sum", "count", "average", "min", "max"}:
+        data["aggregate"] = "sum"
+
     return data
 
 
