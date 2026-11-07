@@ -268,3 +268,146 @@ body,.app-shell,.main-shell,.workspace-main,.auth-page{background:#2c2b28;color:
   gap: 12px;
   margin-top: 24px;
 }
+
+/* Claude Clean Chat View Styles */
+.composer-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.attach-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #393937;
+  border: 1px solid #52514b;
+  border-radius: 6px;
+  color: #e5e5e2;
+  padding: 5px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.attach-button:hover {
+  background: #44433d;
+  border-color: #b6613c;
+}
+.clone-attached-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #282725;
+  border: 1px solid #52514b;
+  border-radius: 8px;
+  padding: 6px 12px;
+  color: #e5e5e2;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+.clone-attached-pill .attached-rows {
+  color: #a6a39a;
+  font-size: 12px;
+}
+.clone-attached-pill .pill-remove {
+  background: none;
+  border: none;
+  color: #a6a39a;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 4px;
+  margin-left: 4px;
+}
+.clone-attached-pill .pill-remove:hover {
+  color: #e5e5e2;
+}
+
+/* Claude Focused Conversation Screen */
+.claude-chat-container {
+  display: flex;
+  flex-direction: column;
+  max-width: 820px;
+  width: 100%;
+  margin: 0 auto;
+  min-height: calc(100vh - 80px);
+  padding: 0 16px 20px;
+}
+
+.claude-sheet-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  margin-bottom: 20px;
+  background: #24231f;
+  border: 1px solid #3a3933;
+  border-radius: 10px;
+}
+.claude-sheet-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #e5e5e2;
+  font-size: 13px;
+}
+.claude-sheet-info .sheet-badge {
+  background: #393937;
+  color: #b6613c;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+}
+
+.claude-conversation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  flex: 1;
+  padding-bottom: 140px;
+}
+
+.claude-user-bubble {
+  align-self: flex-end;
+  max-width: 80%;
+  background: #393937;
+  border: 1px solid #4a4943;
+  color: #e5e5e2;
+  border-radius: 16px 16px 4px 16px;
+  padding: 14px 18px;
+  font-size: 15px;
+  line-height: 1.55;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+.claude-assistant-turn {
+  align-self: flex-start;
+  width: 100%;
+}
+
+.claude-thinking-state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #a6a39a;
+  padding: 16px 0;
+  font-size: 14px;
+}
+.claude-thinking-state .sparkle-spin {
+  color: #b6613c;
+  font-size: 18px;
+  display: inline-block;
+  animation: claudeSpin 2s linear infinite;
+}
+@keyframes claudeSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.claude-bottom-dock {
+  position: sticky;
+  bottom: 0;
+  background: linear-gradient(to top, #2c2b28 85%, transparent);
+  padding: 14px 0 10px;
+  margin-top: auto;
+}
+

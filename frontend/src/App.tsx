@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { api, post, setCSRF, errorText } from './api';
-import type { Auth, Cell, Dataset, Job, Message, Plan, Preview, Settings } from './types';
+import type { Auth, Dataset, Job, Message, Preview, Settings } from './types';
 import { Brand, Icon } from './Icons';
 import AuthView from './AuthView';
-import Calculator from './Calculator';
 import ResultCard from './ResultCard';
 import SettingsPanel from './SettingsPanel';
 import Modal from './Modal';
@@ -20,7 +19,7 @@ const formatDate = (s: string) => {
 
 export default function App() {
   const [pinned, setPinned] = useState(true);
-  const [showData, setShowData] = useState(true);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [auth, setAuth] = useState<Auth | null>(null);
   const [boot, setBoot] = useState(true);
   const [setup, setSetup] = useState(false);
@@ -42,16 +41,12 @@ export default function App() {
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [question, setQuestion] = useState('');
-  const [mode, setMode] = useState<'chat' | 'calculate'>('chat');
   const [activeJob, setActiveJob] = useState<ActiveJob | null>(null);
   const [jobStatus, setJobStatus] = useState('');
   const [failedJob, setFailedJob] = useState<(ActiveJob & { error: string }) | null>(null);
 
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ text: string; kind: 'error' | 'success' } | null>(null);
-  const [edits, setEdits] = useState<Record<number, Cell[]>>({});
-  const [confirmBusy, setConfirmBusy] = useState(false);
-  const [dragging, setDragging] = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const messagesEnd = useRef<HTMLDivElement>(null);
@@ -195,7 +190,7 @@ export default function App() {
           if (job.status !== 'succeeded') {
             setFailedJob({ ...activeJob!, error: job.error || 'The job did not complete. You can retry it.' });
           } else if (activeJob!.kind === 'upload') {
-            setNotice({ kind: 'success', text: 'File processed. Review the data before analysing.' });
+            setNotice({ kind: 'success', text: 'Spreadsheet attached and ready.' });
           }
           setActiveJob(null);
           setRefresh(v => v + 1);
@@ -220,9 +215,7 @@ export default function App() {
     setSelectedId(id);
     setTableIndex(0);
     setOffset(0);
-    setEdits({});
     setFailedJob(null);
-    setShowData(true);
   }
 
   async function upload(file: File) {
@@ -236,6 +229,7 @@ export default function App() {
       await refreshDatasets();
       selectDataset(r.dataset_id);
       setActiveJob({ id: r.job_id, kind: 'upload', dataset_id: r.dataset_id, question: '' });
+      setNotice({ kind: 'success', text: `Attached ${file.name}.` });
     } catch (e) {
       setNotice({ text: errorText(e), kind: 'error' });
     } finally {
@@ -255,30 +249,6 @@ export default function App() {
       setNotice({ text: errorText(e), kind: 'error' });
     } finally {
       setBusy(false);
-    }
-  }
-
-  async function confirmTable() {
-    if (!preview || !selectedId) return;
-    setConfirmBusy(true);
-    try {
-      let rows: Cell[][] | undefined;
-      if (Object.keys(edits).length) {
-        rows = [];
-        for (let start = 0; start < preview.total_rows; start += 100) {
-          const chunk = await api<Preview>(`/datasets/${selectedId}/preview?table_index=${tableIndex}&offset=${start}&limit=100`);
-          if (chunk.version !== preview.version) throw new Error('This dataset changed. Refresh and review the latest version.');
-          chunk.table.rows.forEach((r, i) => rows!.push(edits[start + i] ?? r));
-        }
-      }
-      await post(`/datasets/${selectedId}/confirm`, { table_index: tableIndex, version: preview.version, ...(rows ? { rows } : {}) });
-      setEdits({});
-      setRefresh(x => x + 1);
-      setNotice({ kind: 'success', text: 'Table confirmed. You can now run calculations.' });
-    } catch (e) {
-      setNotice({ text: errorText(e), kind: 'error' });
-    } finally {
-      setConfirmBusy(false);
     }
   }
 
@@ -302,7 +272,7 @@ export default function App() {
 
   async function removeDataset() {
     if (!selected) return;
-    if (!window.confirm(`Delete “${selected.name}”? Its source file, derived data and conversations will be removed.`)) return;
+    if (!window.confirm(`Delete “${selected.name}”? Its source file and conversations will be removed.`)) return;
     setBusy(true);
     try {
       await api(`/datasets/${selected.id}`, { method: 'DELETE' });
@@ -316,16 +286,16 @@ export default function App() {
     }
   }
 
-  async function ask(e?: FormEvent) {
+  async function ask(e?: FormEvent, customText?: string) {
     e?.preventDefault();
-    if (!question.trim() || !selectedId || activeJob || busy || !preview) return;
-    const qText = question.trim();
+    const qText = (customText || question).trim();
+    if (!qText || !selectedId || activeJob || busy) return;
     setQuestion('');
     setBusy(true);
     setNotice(null);
     try {
-      let currentVersion = preview.version;
-      if (!confirmed) {
+      let currentVersion = preview?.version ?? 1;
+      if (preview && !confirmed) {
         const confRes = await post<{ version: number }>(`/datasets/${selectedId}/confirm`, {
           table_index: tableIndex,
           version: currentVersion
@@ -354,26 +324,6 @@ export default function App() {
     }
   }
 
-  async function submitAnalysis(endpoint: string, body: unknown, label: string) {
-    if (activeJob || busy) return;
-    setBusy(true);
-    setFailedJob(null);
-    try {
-      const r = await post<{ job_id: string }>(endpoint, body);
-      setJobStatus('queued');
-      setActiveJob({ id: r.job_id, kind: 'analysis', dataset_id: selectedId, question: label });
-    } catch (e) {
-      setNotice({ kind: 'error', text: errorText(e) });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function calculate(plan: Plan, label: string) {
-    if (!preview) return;
-    void submitAnalysis('/analyses', { dataset_id: selectedId, table_index: tableIndex, version: preview.version, plan }, label);
-  }
-
   async function retry(id: string, kind: 'analysis' | 'upload', label = '') {
     setBusy(true);
     try {
@@ -399,15 +349,6 @@ export default function App() {
     } catch (e) {
       setNotice({ kind: 'error', text: errorText(e) });
     }
-  }
-
-  function editCell(row: number, col: number, value: string) {
-    if (!preview) return;
-    setEdits(prev => {
-      const cells = [...(prev[row] ?? preview.table.rows[row - offset])];
-      cells[col] = value === '' ? null : value;
-      return { ...prev, [row]: cells };
-    });
   }
 
   if (boot) {
@@ -440,7 +381,7 @@ export default function App() {
   }
 
   return (
-    <div className={`app-shell ${pinned ? 'pinned' : 'unpinned'} ${!showData && confirmed ? 'chat-focus' : ''}`}>
+    <div className={`app-shell ${pinned ? 'pinned' : 'unpinned'} chat-focus`}>
       {/* Claude Clone Style Sidebar */}
       <aside className="sidebar">
         <div className="sidebar-top">
@@ -464,7 +405,7 @@ export default function App() {
             setSelectedId('');
             setPreview(null);
             setMessages([]);
-            setShowData(true);
+            setQuestion('');
           }}
           title="Start new analysis"
         >
@@ -552,38 +493,48 @@ export default function App() {
         </div>
       </aside>
 
-      {/* Main Container */}
+      {/* Main Shell */}
       <div className="main-shell">
         <header className="topbar">
           <div className="breadcrumb">
             <span className="clone-spark" style={{ fontSize: '18px', marginRight: '6px' }}>✳</span>
-            <span>Zydrakon</span>
+            <span>Claude Excel Assistant</span>
             <Icon name="chevron" size={12} />
-            <strong>{selected ? selected.name : 'Workspace'}</strong>
+            <strong>{selected ? selected.name : 'New conversation'}</strong>
           </div>
           <div className="topbar-right">
-            {selected && (
+            {selected && preview && (
               <button
-                className="button secondary small-button clone-data-toggle"
-                onClick={() => setShowData(!showData)}
-                disabled={!confirmed}
-                title="Toggle between split-view and focused chat"
+                className="action-pill"
+                onClick={() => setShowPreviewModal(true)}
+                title="View spreadsheet data"
               >
                 <Icon name="columns" size={14} />
-                <span>{showData ? 'Focus on chat' : 'Show data preview'}</span>
+                <span>Preview sheet ({preview.total_rows.toLocaleString()} rows)</span>
+              </button>
+            )}
+            {selected && (
+              <button
+                className="icon-button"
+                onClick={() => void removeDataset()}
+                disabled={busy || !!activeJob}
+                title="Remove this spreadsheet"
+              >
+                <Icon name="trash" size={15} />
               </button>
             )}
             <span className="pilot-badge">EXCEL COPILOT</span>
             <button className="connection-state" onClick={() => setShowSettings(true)}>
               <span className={`status-dot ${cloudReady ? 'online' : 'offline'}`} />
-              <span>{cloudReady ? 'Cloud AI Ready' : 'Local Calculations'}</span>
+              <span>{cloudReady ? 'Claude 3.5 Sonnet' : 'Configure API Key'}</span>
               <Icon name="down" size={11} />
             </button>
           </div>
         </header>
 
-        <main className={`workspace-main ${!selected && !activeJob ? 'clone-home-view' : ''}`}>
-          {!selected && !activeJob && (
+        <main className="workspace-main">
+          {/* If no active conversation: Iconic Claude Home screen */}
+          {messages.length === 0 && !activeJob ? (
             <CloneHome
               username={auth.user.username}
               draft={question}
@@ -592,384 +543,85 @@ export default function App() {
               onSample={() => void loadSample()}
               busy={busy}
               hasDatasets={datasets.length > 0}
+              selectedDataset={selected}
+              totalRows={preview?.total_rows}
+              onDetach={() => {
+                setSelectedId('');
+                setPreview(null);
+                setMessages([]);
+              }}
               onSubmitDraft={() => {
-                if (datasets[0]) {
+                if (selectedId) {
+                  void ask(undefined, question);
+                } else if (datasets.length > 0) {
                   selectDataset(datasets[0].id);
+                  void ask(undefined, question);
+                } else {
+                  fileRef.current?.click();
                 }
               }}
             />
-          )}
-
-          {/* Heading when dataset active */}
-          {selected && (
-            <div className="page-heading">
-              <div>
-                <div className="eyebrow">COMPANY DATA ASSISTANT / {selected.name.toUpperCase()}</div>
-                <h1>{selected.name}</h1>
-                <p>Explore columns, verify calculations, and inspect source evidence.</p>
-              </div>
-              <button
-                className="button primary"
-                onClick={() => fileRef.current?.click()}
-                disabled={busy || !!activeJob}
-              >
-                <Icon name="plus" size={15} />
-                <span>Upload new file</span>
-              </button>
-            </div>
-          )}
-
-          <div className="workspace-grid">
-            {/* Center Data Panel */}
-            <section className="data-panel">
-              <div className="panel-heading">
-                <div>
-                  <span className="panel-icon"><Icon name="columns" size={18} /></span>
-                  <div>
-                    <h2>Data preview</h2>
-                    <span>{selected ? 'Inspect the table powering calculations' : 'No file selected'}</span>
-                  </div>
+          ) : (
+            /* Claude Chat Container */
+            <div className="claude-chat-container">
+              {/* Top attached sheet banner */}
+              <div className="claude-sheet-topbar">
+                <div className="claude-sheet-info">
+                  <span className="clone-spark-icon" style={{ color: '#b6613c', fontSize: '18px' }}>✳</span>
+                  <strong>{selected ? selected.name : 'Spreadsheet Assistant'}</strong>
+                  {preview && (
+                    <span className="sheet-badge">{preview.total_rows.toLocaleString()} rows</span>
+                  )}
                 </div>
-                {selected && (
-                  <button
-                    className="icon-button"
-                    onClick={() => void removeDataset()}
-                    disabled={busy || !!activeJob}
-                    aria-label="Delete dataset"
-                    title="Delete dataset"
-                  >
-                    <Icon name="trash" size={16} />
-                  </button>
-                )}
-              </div>
-
-              {!selected ? (
-                <div
-                  className={`upload-empty ${dragging ? 'dragging' : ''}`}
-                  onDragOver={e => {
-                    e.preventDefault();
-                    setDragging(true);
-                  }}
-                  onDragLeave={() => setDragging(false)}
-                  onDrop={e => {
-                    e.preventDefault();
-                    setDragging(false);
-                    if (e.dataTransfer.files[0]) void upload(e.dataTransfer.files[0]);
-                  }}
-                >
-                  <span className="clone-spark" style={{ fontSize: '38px', color: '#B6613C' }}>✳</span>
-                  <h3>Start with your data</h3>
-                  <p>Drop a CSV, Excel (.xlsx) file, or clear table screenshot here.<br />Calculations run deterministically on the full dataset.</p>
-                  <button className="button primary" onClick={() => fileRef.current?.click()} disabled={busy || !!activeJob}>
-                    <Icon name="upload" size={16} />
-                    <span>Choose file from computer</span>
-                  </button>
-                  <div className="file-formats">
-                    <span>CSV</span>
-                    <span>XLSX</span>
-                    <span>PNG / JPG</span>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="dataset-toolbar">
-                    <div className="current-file">
-                      <span className="file-symbol">
-                        <Icon name={fileIsImage(selected.name) ? 'image' : 'file'} size={18} />
-                      </span>
-                      <div>
-                        <strong title={selected.name}>{selected.name}</strong>
-                        <span>
-                          {preview
-                            ? `${preview.total_rows.toLocaleString()} rows · ${preview.table.columns.length} columns · v${preview.version}`
-                            : 'Preparing dataset'}
-                        </span>
-                      </div>
-                    </div>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  {preview && (
                     <button
-                      className={`classification-pill ${synthetic ? 'synthetic' : 'restricted'}`}
-                      onClick={() => {
-                        setPrivacyAck(false);
-                        setShowPrivacy(true);
-                      }}
-                      disabled={busy || !!activeJob}
+                      className="action-pill"
+                      onClick={() => setShowPreviewModal(true)}
+                      title="Inspect spreadsheet columns and rows"
                     >
-                      <Icon name={synthetic ? 'spark' : 'lock'} size={12} />
-                      <span>{synthetic ? 'Synthetic demo' : 'Restricted (Default)'}</span>
-                      <Icon name="down" size={11} />
+                      <Icon name="columns" size={13} />
+                      <span>Preview sheet</span>
                     </button>
-                  </div>
-
-                  {['queued', 'running'].includes(selected.status) ? (
-                    <div className="panel-empty">
-                      <span className="spinner dark" />
-                      <h3>Reading and parsing file…</h3>
-                      <p>Running local ingestion worker.</p>
-                    </div>
-                  ) : selected.status === 'failed' ? (
-                    <div className="panel-empty">
-                      <span className="error-circle"><Icon name="warning" size={24} /></span>
-                      <h3>This file needs attention</h3>
-                      <p>{selected.error || 'The file could not be processed.'}</p>
-                      {selected.job_id && (
-                        <button className="button secondary" onClick={() => void retry(selected.job_id!, 'upload')} disabled={busy || !!activeJob}>
-                          <Icon name="refresh" size={14} />
-                          <span>Retry processing</span>
-                        </button>
-                      )}
-                    </div>
-                  ) : previewLoading ? (
-                    <div className="panel-empty">
-                      <span className="spinner dark" />
-                      <p>Loading table…</p>
-                    </div>
-                  ) : previewError ? (
-                    <div className="panel-empty">
-                      <Icon name="warning" size={20} />
-                      <p>{previewError}</p>
-                      <button className="button secondary" onClick={() => setRefresh(x => x + 1)}>Reload preview</button>
-                    </div>
-                  ) : preview ? (
-                    <>
-                      <div className="table-tabs" role="tablist" aria-label="Workbook sheets">
-                        {preview.table_names.map((name, i) => (
-                          <button
-                            role="tab"
-                            aria-selected={tableIndex === i}
-                            key={`${name}-${i}`}
-                            className={tableIndex === i ? 'active' : ''}
-                            onClick={() => {
-                              setTableIndex(i);
-                              setOffset(0);
-                              setEdits({});
-                            }}
-                          >
-                            <Icon name="grid" size={13} />
-                            <span>{name}</span>
-                          </button>
-                        ))}
-                        <span className={`table-review-state ${confirmed ? 'confirmed' : ''}`}>
-                          <Icon name={confirmed ? 'check' : 'eye'} size={12} />
-                          <span>{confirmed ? 'Reviewed' : 'Review needed'}</span>
-                        </span>
-                      </div>
-
-                      {preview.table.warnings.length > 0 && (
-                        <details className="data-warnings">
-                          <summary>
-                            <Icon name="warning" size={14} />
-                            <span>{preview.table.warnings.length} data {preview.table.warnings.length === 1 ? 'note' : 'notes'} to review</span>
-                            <Icon name="down" size={12} />
-                          </summary>
-                          <ul>
-                            {preview.table.warnings.map((w, i) => <li key={i}>{w}</li>)}
-                          </ul>
-                        </details>
-                      )}
-
-                      {preview.table.requires_review && (
-                        <details className="image-preview">
-                          <summary>
-                            <Icon name="image" size={14} />
-                            <span>View original uploaded image</span>
-                            <Icon name="down" size={12} />
-                          </summary>
-                          <img src={`/api/datasets/${selectedId}/image`} alt="Original table upload" />
-                        </details>
-                      )}
-
-                      {!confirmed && (
-                        <div className="review-banner">
-                          <Icon name="eye" size={16} />
-                          <div>
-                            <strong>{preview.table.requires_review ? 'Inspect extracted table cells' : 'Review table before calculation'}</strong>
-                            <span>{preview.table.requires_review ? 'Correct any OCR misreads in the inputs below, then confirm.' : 'Calculations will execute deterministically across all rows.'}</span>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="data-table-scroll">
-                        <table className="data-table">
-                          <thead>
-                            <tr>
-                              <th className="row-number" scope="col">#</th>
-                              {preview.table.columns.map((c, i) => (
-                                <th key={`${c.name}-${i}`} scope="col">
-                                  <span className="column-type">{c.formula ? 'ƒ' : c.type === 'number' ? '#' : c.type === 'date' ? '◷' : 'Aa'}</span>
-                                  <span>{c.name}</span>
-                                  {c.formula && <span className="formula-mark" title="Formula values are not recalculated">!</span>}
-                                </th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {preview.table.rows.map((r, i) => (
-                              <tr key={offset + i}>
-                                <th scope="row" className="row-number">{preview.table.source_rows?.[i] ?? offset + i + 2}</th>
-                                {(edits[offset + i] ?? r).map((c, j) => (
-                                  <td
-                                    key={j}
-                                    className={`${preview.table.columns[j]?.type === 'number' ? 'numeric' : ''} ${preview.table.columns[j]?.formula ? 'formula-cell' : ''}`}
-                                  >
-                                    {preview.table.requires_review && !confirmed ? (
-                                      <input
-                                        className="cell-input"
-                                        aria-label={`Row ${offset + i + 1}, ${preview.table.columns[j]?.name}`}
-                                        value={c === null ? '' : String(c)}
-                                        onChange={e => editCell(offset + i, j, e.target.value)}
-                                      />
-                                    ) : c === null ? (
-                                      <span className="null-value">—</span>
-                                    ) : (
-                                      String(c)
-                                    )}
-                                  </td>
-                                ))}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                        {preview.table.rows.length === 0 && <p className="no-rows">This table has no rows.</p>}
-                      </div>
-
-                      <div className="table-footer">
-                        <span>
-                          {preview.total_rows ? `${offset + 1}–${Math.min(offset + preview.table.rows.length, preview.total_rows)}` : '0'} of {preview.total_rows.toLocaleString()} rows
-                        </span>
-                        <div>
-                          <button
-                            className="icon-button prev-page"
-                            disabled={offset === 0}
-                            onClick={() => setOffset(x => Math.max(0, x - 100))}
-                            aria-label="Previous 100 rows"
-                          >
-                            <Icon name="chevron" size={14} className="rotate-180" />
-                          </button>
-                          <button
-                            className="icon-button"
-                            disabled={offset + 100 >= preview.total_rows}
-                            onClick={() => setOffset(x => x + 100)}
-                            aria-label="Next 100 rows"
-                          >
-                            <Icon name="chevron" size={14} />
-                          </button>
-                        </div>
-                      </div>
-
-                      {!confirmed ? (
-                        <div className="confirm-footer">
-                          <span><Icon name="shield" size={14} />Original file remains immutable</span>
-                          <button
-                            className="button primary small-button"
-                            onClick={() => void confirmTable()}
-                            disabled={confirmBusy || busy || !!activeJob}
-                          >
-                            {confirmBusy ? <span className="spinner" /> : <Icon name="check" size={15} />}
-                            <span>Confirm table</span>
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="confirmed-footer">
-                          <Icon name="check" size={14} />
-                          <span>Table reviewed. All {preview.total_rows.toLocaleString()} rows verified for calculations.</span>
-                        </div>
-                      )}
-                    </>
-                  ) : null}
-                </>
-              )}
-            </section>
-
-            {/* Right Analysis Panel */}
-            <section className="analysis-panel">
-              <div className="panel-heading">
-                <div>
-                  <span className="panel-icon"><Icon name="spark" size={18} /></span>
-                  <div>
-                    <h2>Conversation & Analysis</h2>
-                    <span>Evidence-backed answers</span>
-                  </div>
-                </div>
-                <div className="mode-switch" role="tablist" aria-label="Analysis mode">
+                  )}
                   <button
-                    role="tab"
-                    aria-selected={mode === 'chat'}
-                    className={mode === 'chat' ? 'active' : ''}
-                    onClick={() => setMode('chat')}
+                    className="action-pill"
+                    onClick={() => fileRef.current?.click()}
+                    disabled={busy || !!activeJob}
+                    title="Attach another spreadsheet"
                   >
-                    <Icon name="spark" size={13} />
-                    <span>Ask AI</span>
-                  </button>
-                  <button
-                    role="tab"
-                    aria-selected={mode === 'calculate'}
-                    className={mode === 'calculate' ? 'active' : ''}
-                    onClick={() => setMode('calculate')}
-                  >
-                    <Icon name="calculator" size={13} />
-                    <span>Calculate</span>
+                    <Icon name="upload" size={13} />
+                    <span>Change sheet</span>
                   </button>
                 </div>
               </div>
 
-              <div className="conversation" aria-live="polite">
-                {messages.length === 0 && !activeJob ? (
-                  <div className="assistant-empty">
-                    <span className="clone-spark-icon" style={{ fontSize: '32px', color: '#B6613C' }}>✳</span>
-                    <h3>{mode === 'chat' ? 'Copilot in Excel — Ask anything about your data' : 'Run deterministic calculations'}</h3>
-                    <p>
-                      {mode === 'chat'
-                        ? 'Ask for totals, trends, Excel formulas, summaries, or anomalies. Copilot analyzes your full spreadsheet directly.'
-                        : 'Choose an aggregation operation, column, and filters. Results compute locally on the full table.'}
-                    </p>
-                    {mode === 'chat' && (
-                      <div className="question-suggestions">
-                        <span>EXAMPLE QUESTIONS (ENGLISH & HINGLISH)</span>
-                        {['What is the total sales amount?', 'Show the top 5 records by revenue', 'Sabse zyada incidents kis port par hain?', 'Identify duplicate entries and missing blanks'].map(q => (
-                          <button
-                            key={q}
-                            disabled={!canAsk}
-                            onClick={() => {
-                              setQuestion(q);
-                              questionRef.current?.focus();
-                            }}
-                          >
-                            <span>{q}</span>
-                            <Icon name="arrow" size={13} />
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  messages.map(m => (
-                    <div className="conversation-turn" key={m.id}>
-                      <div className="user-question">
-                        <span className="user-badge">You</span>
-                        <p>{m.question}</p>
-                      </div>
+              {/* Chat Message Stream */}
+              <div className="claude-conversation-list" aria-live="polite">
+                {messages.map(m => (
+                  <div key={m.id} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <div className="claude-user-bubble">
+                      {m.question}
+                    </div>
+                    <div className="claude-assistant-turn">
                       {m.result && <ResultCard result={m.result} />}
                     </div>
-                  ))
-                )}
+                  </div>
+                ))}
 
-                {activeJob?.kind === 'analysis' && activeJob.dataset_id === selectedId && (
-                  <div className="conversation-turn">
-                    <div className="user-question">
-                      <span className="user-badge">You</span>
-                      <p>{activeJob.question}</p>
+                {activeJob?.kind === 'analysis' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <div className="claude-user-bubble">
+                      {activeJob.question}
                     </div>
-                    <div className="working-message">
-                      <span className="spinner dark" />
-                      <div>
-                        <strong>{jobStatus === 'queued' ? 'Queued for calculation…' : 'Calculating on full dataset…'}</strong>
-                        <span>Validating plan and running Python Decimal / pandas.</span>
-                      </div>
+                    <div className="claude-thinking-state">
+                      <span className="sparkle-spin">✳</span>
+                      <span>{jobStatus === 'queued' ? 'Queued for calculation…' : 'Claude is analyzing your spreadsheet…'}</span>
                     </div>
                   </div>
                 )}
 
-                {failedJob && failedJob.dataset_id === selectedId && (
+                {failedJob && (
                   <div className="job-error" role="alert">
                     <Icon name="warning" size={16} />
                     <div>
@@ -986,86 +638,74 @@ export default function App() {
                     </div>
                   </div>
                 )}
-
                 <div ref={messagesEnd} />
               </div>
 
-              {/* Composer */}
-              {mode === 'chat' ? (
-                <div className="composer-section">
-                  {!canAsk && (
-                    <div className="composer-gate">
-                      <Icon name="lock" size={15} />
-                      <div>
-                        {!selected ? (
-                          'Upload a dataset to start asking questions.'
-                        ) : !ready ? (
-                          'Preparing file…'
-                        ) : !cloudReady ? (
-                          <>
-                            <strong>Cloud API key not configured.</strong>
-                            <button className="text-button" onClick={() => setMode('calculate')}>
-                              Use local calculation builder
-                            </button>
-                          </>
-                        ) : (
-                          'Ready'
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  <form className={`question-composer ${!canAsk ? 'disabled' : ''}`} onSubmit={e => void ask(e)}>
-                    <textarea
-                      ref={questionRef}
-                      aria-label="Ask a question about your data"
-                      placeholder={canAsk ? 'Ask in English or Hinglish (e.g. Sabse zyada incidents kis port par hain?)' : 'Review table or configure cloud key to ask…'}
-                      value={question}
-                      onChange={e => setQuestion(e.target.value)}
-                      disabled={!canAsk || busy || !!activeJob}
-                      rows={2}
-                      maxLength={2000}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          void ask();
-                        }
-                      }}
-                    />
-                    <div className="composer-bottom">
-                      <span className="composer-sheet-name">
-                        <Icon name="file" size={12} />
-                        <span>{preview?.table.name || 'No table selected'}</span>
-                      </span>
+              {/* Floating Bottom Composer */}
+              <div className="claude-bottom-dock">
+                <div className="clone-composer" style={{ margin: 0, width: '100%' }}>
+                  {selected && (
+                    <div className="clone-attached-pill" style={{ marginBottom: '8px' }}>
+                      <span className="attached-icon"><Icon name="file" size={13} /></span>
+                      <strong style={{ fontSize: '13px' }}>{selected.name}</strong>
+                      {preview && <span className="attached-rows">({preview.total_rows.toLocaleString()} rows)</span>}
                       <button
-                        aria-label="Send question"
-                        className="send-button"
-                        disabled={!canAsk || !question.trim() || busy || !!activeJob}
+                        type="button"
+                        className="action-pill"
+                        style={{ padding: '2px 8px', fontSize: '11px', marginLeft: '6px' }}
+                        onClick={() => setShowPreviewModal(true)}
                       >
-                        <Icon name="arrow" size={16} />
+                        View table
                       </button>
                     </div>
-                  </form>
-                </div>
-              ) : (
-                <div className="calculator-section">
-                  {!confirmed && (
-                    <div className="composer-gate">
-                      <Icon name="eye" size={15} />
-                      <span>{selected ? 'Confirm table to run local calculations.' : 'Upload and confirm a table first.'}</span>
-                    </div>
                   )}
-                  <Calculator
-                    key={`${selectedId}-${tableIndex}`}
-                    columns={preview?.table.columns || []}
-                    disabled={!ready || !confirmed}
-                    busy={busy || !!activeJob}
-                    onRun={calculate}
+                  <textarea
+                    ref={questionRef}
+                    aria-label="Ask Claude about your spreadsheet"
+                    placeholder={canAsk ? "Reply to Claude or ask another question about your sheet..." : "Attach a sheet and configure key to ask..."}
+                    value={question}
+                    onChange={e => setQuestion(e.target.value)}
+                    disabled={!canAsk || busy || !!activeJob}
+                    rows={2}
+                    maxLength={2000}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        void ask();
+                      }
+                    }}
                   />
+                  <div className="clone-composer-bar">
+                    <div className="composer-bar-left">
+                      <button
+                        type="button"
+                        className="attach-button"
+                        onClick={() => fileRef.current?.click()}
+                        title="Attach CSV or Excel spreadsheet"
+                        disabled={busy || !!activeJob}
+                      >
+                        <Icon name="upload" size={13} />
+                        <span>Attach sheet</span>
+                      </button>
+                      <span className="model-tag">
+                        <span className="clone-spark-icon" style={{ color: '#b6613c', fontSize: '13px' }}>✳</span>
+                        <span>Claude 3.5 Sonnet</span>
+                      </span>
+                    </div>
+                    <button
+                      aria-label="Send question"
+                      className={`send-circle ${question.trim() ? 'active' : ''}`}
+                      disabled={!canAsk || !question.trim() || busy || !!activeJob}
+                      onClick={() => void ask()}
+                      title="Send to Claude"
+                    >
+                      <Icon name="arrow" size={18} />
+                    </button>
+                  </div>
                 </div>
-              )}
-            </section>
-          </div>
+              </div>
+            </div>
+          )}
         </main>
       </div>
 
@@ -1093,6 +733,105 @@ export default function App() {
       {showSettings && (
         <SettingsPanel settings={settings} onClose={() => setShowSettings(false)} onAuth={acceptAuth} />
       )}
+
+      {/* Spreadsheet Preview Modal (Inspect table without cluttering main view) */}
+      {showPreviewModal && (
+        <Modal title={`Spreadsheet Preview — ${preview?.table.name || 'Loading...'}`} onClose={() => setShowPreviewModal(false)}>
+          {previewLoading ? (
+            <div className="panel-empty" style={{ padding: '40px', textAlign: 'center' }}>
+              <span className="spinner dark" />
+              <p style={{ marginTop: '12px' }}>Loading spreadsheet preview…</p>
+            </div>
+          ) : previewError ? (
+            <div className="panel-empty" style={{ padding: '40px', textAlign: 'center' }}>
+              <Icon name="warning" size={24} />
+              <p style={{ marginTop: '12px' }}>{previewError}</p>
+            </div>
+          ) : preview ? (
+            <div style={{ maxHeight: '75vh', overflow: 'auto', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div className="table-tabs" role="tablist">
+                {preview.table_names.map((name, i) => (
+                  <button
+                    key={`${name}-${i}`}
+                    className={tableIndex === i ? 'active' : ''}
+                  onClick={() => {
+                    setTableIndex(i);
+                    setOffset(0);
+                  }}
+                >
+                  <Icon name="grid" size={13} />
+                  <span>{name}</span>
+                </button>
+              ))}
+            </div>
+
+            {preview.table.warnings.length > 0 && (
+              <details className="data-warnings">
+                <summary>
+                  <Icon name="warning" size={14} />
+                  <span>{preview.table.warnings.length} notes</span>
+                </summary>
+                <ul>
+                  {preview.table.warnings.map((w, i) => <li key={i}>{w}</li>)}
+                </ul>
+              </details>
+            )}
+
+            <div className="data-table-scroll" style={{ maxHeight: '420px', overflow: 'auto' }}>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th className="row-number" scope="col">#</th>
+                    {preview.table.columns.map((c, i) => (
+                      <th key={`${c.name}-${i}`} scope="col">
+                        <span className="column-type">{c.formula ? 'ƒ' : c.type === 'number' ? '#' : c.type === 'date' ? '◷' : 'Aa'}</span>
+                        <span>{c.name}</span>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {preview.table.rows.map((r, i) => (
+                    <tr key={offset + i}>
+                      <th scope="row" className="row-number">{preview.table.source_rows?.[i] ?? offset + i + 2}</th>
+                      {r.map((c, j) => (
+                        <td key={j} className={preview.table.columns[j]?.type === 'number' ? 'numeric' : ''}>
+                          {c === null ? <span className="null-value">—</span> : String(c)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="table-footer">
+              <span>
+                {preview.total_rows ? `${offset + 1}–${Math.min(offset + preview.table.rows.length, preview.total_rows)}` : '0'} of {preview.total_rows.toLocaleString()} rows
+              </span>
+              <div>
+                <button
+                  className="icon-button"
+                  disabled={offset === 0}
+                  onClick={() => setOffset(x => Math.max(0, x - 100))}
+                  aria-label="Previous 100 rows"
+                >
+                  <Icon name="chevron" size={14} className="rotate-180" />
+                </button>
+                <button
+                  className="icon-button"
+                  disabled={offset + 100 >= preview.total_rows}
+                  onClick={() => setOffset(x => x + 100)}
+                  aria-label="Next 100 rows"
+                >
+                  <Icon name="chevron" size={14} />
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
+    )}
 
       {showPrivacy && selected && (
         <Modal title="Dataset privacy" onClose={() => setShowPrivacy(false)}>

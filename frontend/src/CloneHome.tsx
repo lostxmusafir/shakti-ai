@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { Dataset } from './types';
 import { Icon } from './Icons';
 
 interface CloneHomeProps {
@@ -10,6 +11,9 @@ interface CloneHomeProps {
   setDraft: (value: string) => void;
   onSubmitDraft?: () => void;
   hasDatasets?: boolean;
+  selectedDataset?: Dataset | null;
+  totalRows?: number;
+  onDetach?: () => void;
 }
 
 export default function CloneHome({
@@ -20,7 +24,10 @@ export default function CloneHome({
   draft,
   setDraft,
   onSubmitDraft,
-  hasDatasets
+  hasDatasets,
+  selectedDataset,
+  totalRows,
+  onDetach
 }: CloneHomeProps) {
   const [showSuggestions, setShowSuggestions] = useState(true);
 
@@ -39,7 +46,7 @@ export default function CloneHome({
   return (
     <section className="clone-welcome">
       <div className="clone-status-pill">
-        <span>Microsoft Copilot Experience · Excel & Spreadsheets</span>
+        <span>Claude 3.5 Sonnet · Spreadsheet Assistant</span>
       </div>
 
       <div className="clone-greeting-block">
@@ -48,19 +55,45 @@ export default function CloneHome({
       </div>
 
       <div className="clone-composer">
+        {selectedDataset && (
+          <div className="clone-attached-pill">
+            <span className="attached-icon"><Icon name="file" size={14} /></span>
+            <strong>{selectedDataset.name}</strong>
+            {totalRows !== undefined && <span className="attached-rows">({totalRows.toLocaleString()} rows)</span>}
+            {onDetach && (
+              <button className="pill-remove" onClick={onDetach} title="Detach spreadsheet" aria-label="Detach">
+                ×
+              </button>
+            )}
+          </div>
+        )}
         <textarea
-          aria-label="Ask Copilot about your spreadsheet"
-          placeholder="Ask Copilot anything about your spreadsheet or formulas (e.g. Sabse zyada sales kiski hai? ya formula batao)"
+          aria-label="Ask Claude about your spreadsheet"
+          placeholder={selectedDataset ? `Ask Claude anything about ${selectedDataset.name} in English or Hinglish...` : "How can Claude help you with your spreadsheets today?"}
           value={draft}
           onChange={e => setDraft(e.target.value)}
           maxLength={2000}
           rows={3}
+          onKeyDown={e => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              if (onSubmitDraft && draft.trim()) {
+                onSubmitDraft();
+              }
+            }
+          }}
         />
         <div className="clone-composer-bar">
-          <span className="model-tag">
-            <Icon name="cloud" size={13} />
-            <span>Copilot in Excel · Cloud AI</span>
-          </span>
+          <div className="composer-bar-left">
+            <button className="attach-button" onClick={onUpload} title="Attach CSV or Excel spreadsheet" disabled={busy}>
+              <Icon name="upload" size={14} />
+              <span>Attach sheet</span>
+            </button>
+            <span className="model-tag">
+              <span className="clone-spark-icon" style={{ color: '#b6613c', fontSize: '13px' }}>✳</span>
+              <span>Claude 3.5 Sonnet</span>
+            </span>
+          </div>
           <button
             aria-label="Start analysis"
             className={`send-circle ${draft.trim() ? 'active' : ''}`}
@@ -71,8 +104,8 @@ export default function CloneHome({
                 onUpload();
               }
             }}
-            disabled={busy}
-            title={draft.trim() ? (hasDatasets ? "Submit question" : "Upload data to answer this question") : "Upload data to begin"}
+            disabled={busy || !draft.trim()}
+            title={draft.trim() ? "Send to Claude" : "Type a question"}
           >
             <Icon name="arrow" size={18} />
           </button>
