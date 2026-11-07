@@ -191,3 +191,64 @@ def test_cloud_generate_plan_error_sanitization(tmp_path):
         with pytest.raises(ValueError) as excinfo:
             generate_plan(settings, "Total?", SAMPLE_COLUMNS, classification="synthetic")
         assert "Cloud request failed or timed out. No answer was generated; retry safely." in str(excinfo.value)
+
+
+def test_generate_ai_answer_direct_calculation(tmp_path):
+    from app.cloud import generate_ai_answer, normalize_ai_result, prepare_table_payload
+    settings = Settings(data_dir=tmp_path, api_key="test-key", model="ministral-8b-latest")
+
+    mock_response = MagicMock()
+    mock_choice = MagicMock()
+    mock_choice.message.content = json.dumps({
+        "answer": "Total revenue across 8 records is 75,600.50.",
+        "value": "75600.50",
+        "method": "Direct sum of Revenue column",
+        "columns": ["Department", "Revenue"],
+        "rows": [["Sales", 39300.50], ["Operations", 18200.00]],
+        "row_count": 8,
+        "excluded_rows": 0,
+        "source_rows": [2, 3, 4],
+        "clarification": None
+    })
+    mock_response.choices = [mock_choice]
+    mock_response.usage.prompt_tokens = 120
+    mock_response.usage.completion_tokens = 45
+
+    with patch("app.cloud.OpenAI") as mock_openai_cls:
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = mock_response
+        mock_openai_cls.return_value.__enter__.return_value = mock_client
+
+        result, metrics = generate_ai_answer(settings, "What is total revenue?", SAMPLE_TABLE, classification="synthetic")
+        assert result["value"] == "75600.50"
+        assert "75,600.50" in result["answer"]
+        assert result["row_count"] == 8
+        assert len(result["rows"]) == 2
+        assert metrics["input_tokens"] == 120
+        assert metrics["output_tokens"] == 45
+
+
+def test_generate_ai_answer_restricted_blocked(tmp_path):
+    from app.cloud import generate_ai_answer
+    settings = Settings(data_dir=tmp_path, api_key="test-key", model="ministral-8b-latest")
+    with pytest.raises(ValueError, match="blocked for Restricted"):
+        generate_ai_answer(settings, "Total?", SAMPLE_TABLE, classification="restricted")
+
+
+def test_normalize_ai_result_edge_cases():
+    from app.cloud import normalize_ai_result
+    # 1. Empty dict
+    res = normalize_ai_result({}, total_rows=10)
+    assert res["row_count"] == 10
+    assert res["clarification"] is False
+    assert res["answer"] == "Analysis completed successfully."
+
+    # 2. Clarification present
+    res_clar = normalize_ai_result({"clarification": "Which department?"}, total_rows=5)
+    assert res_clar["clarification"] is True
+    assert res_clar["answer"] == "Which department?"
+
+    # 3. Dict rows converted to lists
+    res_dict_rows = normalize_ai_result({"rows": [{"a": 1, "b": 2}]}, total_rows=1)
+    assert res_dict_rows["rows"] == [[1, 2]]
+

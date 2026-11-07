@@ -53,27 +53,38 @@ def run_job(settings: Settings, job_id: str):
                     usage = Usage(user_id=job.user_id, failed=1)
                     db.add(usage)
                     db.commit()  # Reserve usage before network call, including crashes/timeouts.
-                    from .cloud import generate_plan
-                    plan, metrics = generate_plan(settings, payload['question'], table['columns'], classification=dataset.classification)
+                    from .cloud import generate_ai_answer
+                    ai_result, metrics = generate_ai_answer(settings, payload['question'], table, classification=dataset.classification)
                     usage.input_tokens = metrics['input_tokens']
                     usage.output_tokens = metrics['output_tokens']
                     usage.latency_ms = metrics['latency_ms']
                     usage.failed = 0
                     db.commit()
+                    result = ai_result
+                    result.update(
+                        dataset_name=dataset.name,
+                        table_name=table['name'],
+                        version=dataset.version,
+                        question=payload.get('question', ''),
+                        interpretation=ai_result.get('answer', ''),
+                        plan={'action': 'cloud_ai', 'method': ai_result.get('method')},
+                        engine='cloud',
+                    )
                 else:
                     plan = AnalysisPlan.model_validate(payload['plan'])
-                if plan.clarification:
-                    result = {'answer': plan.clarification, 'clarification': True, 'value': None, 'columns': [], 'rows': [],
-                              'method': 'Clarification required', 'filters': [], 'source_rows': [], 'row_count': 0,
-                              'excluded_rows': 0, 'warnings': []}
-                else:
-                    from .analysis import analyze
-                    result = analyze(table, plan)
-                result.update(dataset_name=dataset.name, table_name=table['name'], version=dataset.version,
-                              question=payload.get('question', 'Local calculation'),
-                              interpretation=plan.interpretation, plan=plan.model_dump(mode='json'))
+                    if plan.clarification:
+                        result = {'answer': plan.clarification, 'clarification': True, 'value': None, 'columns': [], 'rows': [],
+                                  'method': 'Clarification required', 'filters': [], 'source_rows': [], 'row_count': 0,
+                                  'excluded_rows': 0, 'warnings': []}
+                    else:
+                        from .analysis import analyze
+                        result = analyze(table, plan)
+                    result.update(dataset_name=dataset.name, table_name=table['name'], version=dataset.version,
+                                  question=payload.get('question', 'Local calculation'),
+                                  interpretation=plan.interpretation, plan=plan.model_dump(mode='json'),
+                                  engine='local')
                 db.add(Message(user_id=job.user_id, dataset_id=dataset.id, job_id=job.id,
-                               question=payload.get('question', 'Local calculation'), result=json.dumps(result, ensure_ascii=False)))
+                               question=payload.get('question', 'Analysis'), result=json.dumps(result, ensure_ascii=False)))
             job.result = json.dumps(result, ensure_ascii=False, allow_nan=False)
             job.status = 'succeeded'
             job.finished_at = now()

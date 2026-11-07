@@ -20,7 +20,7 @@ export default function ResultCard({result, onRetry}:{result:Result; onRetry?:()
      <span className="clone-spark-icon" aria-hidden="true">✳</span>
      <strong>Zydrakon AI</strong>
    </div>
-   <span className="verified-tag"><Icon name="check" size={12}/>Calculated locally</span>
+   <span className="verified-tag"><Icon name="check" size={12}/>{(result as any).engine === 'cloud' || result.method?.toLowerCase().includes('cloud') ? 'Calculated by Cloud AI' : 'Calculated locally'}</span>
   </div>
 
   <p className="answer-text">{result.answer}</p>

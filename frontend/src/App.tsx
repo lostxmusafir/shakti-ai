@@ -561,6 +561,11 @@ export default function App() {
               onSample={() => void loadSample()}
               busy={busy}
               hasDatasets={datasets.length > 0}
+              onSubmitDraft={() => {
+                if (datasets[0]) {
+                  selectDataset(datasets[0].id);
+                }
+              }}
             />
           )}
 
@@ -966,12 +971,17 @@ export default function App() {
                         ) : !ready ? (
                           'Preparing file…'
                         ) : !confirmed ? (
-                          'Review and confirm the table above.'
+                          <>
+                            <span>Table review required.</span>
+                            <button className="text-button" onClick={() => void confirmTable()} disabled={confirmBusy}>
+                              {confirmBusy ? 'Confirming…' : 'Confirm table'}
+                            </button>
+                          </>
                         ) : !synthetic ? (
                           <>
-                            <strong>Restricted data cannot leave this PC.</strong>
-                            <button className="text-button" onClick={() => setShowPrivacy(true)}>
-                              Enable synthetic demo mode
+                            <strong>Cloud AI disabled (Restricted mode).</strong>
+                            <button className="text-button" onClick={() => void classify('synthetic')} disabled={busy}>
+                              Enable Cloud AI for this dataset
                             </button>
                           </>
                         ) : !cloudReady ? (
