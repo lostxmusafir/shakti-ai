@@ -252,3 +252,36 @@ def test_normalize_ai_result_edge_cases():
     res_dict_rows = normalize_ai_result({"rows": [{"a": 1, "b": 2}]}, total_rows=1)
     assert res_dict_rows["rows"] == [[1, 2]]
 
+
+def test_generate_ai_answer_hinglish(tmp_path):
+    from app.cloud import generate_ai_answer
+    settings = Settings(data_dir=tmp_path, api_key="test-key", model="ministral-8b-latest")
+
+    mock_response = MagicMock()
+    mock_choice = MagicMock()
+    mock_choice.message.content = json.dumps({
+        "answer": "Sales department ka total revenue 39,300.50 hai, jo ki sabse zyada hai.",
+        "value": "39300.50",
+        "method": "Cloud AI direct calculation: Filtered by Sales and summed Revenue",
+        "columns": ["Department", "Total Revenue"],
+        "rows": [["Sales", 39300.50]],
+        "row_count": 8,
+        "excluded_rows": 0,
+        "source_rows": [2, 4, 8],
+        "clarification": None
+    })
+    mock_response.choices = [mock_choice]
+    mock_response.usage.prompt_tokens = 110
+    mock_response.usage.completion_tokens = 40
+
+    with patch("app.cloud.OpenAI") as mock_openai_cls:
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = mock_response
+        mock_openai_cls.return_value.__enter__.return_value = mock_client
+
+        result, metrics = generate_ai_answer(settings, "Sabse zyada revenue kis department ka hai?", SAMPLE_TABLE, classification="synthetic")
+        assert "Sales" in result["answer"]
+        assert result["value"] == "39300.50"
+        assert metrics["input_tokens"] == 110
+
+

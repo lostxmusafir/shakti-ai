@@ -893,8 +893,8 @@ export default function App() {
                     </p>
                     {mode === 'chat' && (
                       <div className="question-suggestions">
-                        <span>EXAMPLE QUESTIONS</span>
-                        {['What is the total sales amount?', 'Show the top 5 records by revenue', 'Identify duplicate entries and missing blanks'].map(q => (
+                        <span>EXAMPLE QUESTIONS (ENGLISH & HINGLISH)</span>
+                        {['What is the total sales amount?', 'Show the top 5 records by revenue', 'Sabse zyada incidents kis port par hain?', 'Identify duplicate entries and missing blanks'].map(q => (
                           <button
                             key={q}
                             disabled={!canAsk}
@@ -1002,7 +1002,7 @@ export default function App() {
                     <textarea
                       ref={questionRef}
                       aria-label="Ask a question about your data"
-                      placeholder={canAsk ? 'Reply to Zydrakon about this table…' : 'Review table or configure cloud key to ask…'}
+                      placeholder={canAsk ? 'Ask in English or Hinglish (e.g. Sabse zyada incidents kis port par hain?)' : 'Review table or configure cloud key to ask…'}
                       value={question}
                       onChange={e => setQuestion(e.target.value)}
                       disabled={!canAsk || busy || !!activeJob}

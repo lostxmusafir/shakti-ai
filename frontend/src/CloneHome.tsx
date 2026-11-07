@@ -32,13 +32,14 @@ export default function CloneHome({
     'Explore a company spreadsheet',
     'Compare department totals',
     'Find top 5 expenses by amount',
+    'Sabse zyada incidents kis port par hain?',
     'Identify duplicate records and blanks'
   ];
 
   return (
     <section className="clone-welcome">
       <div className="clone-status-pill">
-        <span>Zydrakon AI · SQLite + Cloud AI · 2-User Pilot</span>
+        <span>Zydrakon AI · SQLite + Cloud AI · English & Hinglish</span>
       </div>
 
       <div className="clone-greeting-block">
@@ -48,8 +49,8 @@ export default function CloneHome({
 
       <div className="clone-composer">
         <textarea
-          aria-label="Ask a question about your data"
-          placeholder="How can Zydrakon help you today?"
+          aria-label="Ask a question about your data in English or Hinglish"
+          placeholder="Ask in English or Hinglish (e.g. Sabse zyada incidents kis port par hain?)"
           value={draft}
           onChange={e => setDraft(e.target.value)}
           maxLength={2000}
