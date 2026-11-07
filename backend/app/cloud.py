@@ -4,6 +4,7 @@ No original file, row sample, results, or conversation history is sent to the pr
 Questions and column names still leave the PC. This adapter is synthetic-demo only.
 """
 import json
+import re
 import time
 
 from openai import OpenAI, APIError
@@ -176,33 +177,34 @@ def generate_plan(settings, question: str, columns: list[dict], *, classificatio
         raise ValueError('Cloud rate or usage limit reached. Retry later.') from None
 
 
-AI_ANALYSIS_SYSTEM = '''You are Zydrakon AI, an expert enterprise Data Analyst and Computational AI.
-You are given a table dataset (schema, row count, and actual data rows) and a question or analysis prompt from a company user.
-Your job is to thoroughly analyze the data and calculate the exact answers directly using the provided table rows.
+AI_ANALYSIS_SYSTEM = '''You are Zydrakon AI, a versatile, brilliant enterprise AI Data Assistant.
+The user provides a dataset table (schema, column information, total row count, and actual data rows) and asks a question or makes a request about the sheet.
 
-Language & Hinglish Support:
-- Fully understand questions in Hinglish (Hindi written in Roman script, e.g. "sabse zyada incidents kis port par hain?", "total kitna hai?", "kya koi duplicate rows hain?", "top 5 dikhao", "kya missing values hain?"), pure Hindi, and English.
-- Language Matching: If the user asks in Hinglish (Hindi written in Roman script), respond in natural, professional, clear Hinglish so it is effortless for Indian users to understand (e.g. "Total 100 records mein se sabse zyada incidents Port 25 par hain (47 incidents)...").
-- If the user asks in English, respond in English. If the user asks in Hindi (Devanagari), respond in Hindi.
+Your objective: Answer ANY question or request the user has about this sheet thoroughly, accurately, and intelligently.
+Whatever the user asks — calculations, totals, averages, summaries, trends, rankings, qualitative insights, explanations, suspicious rows, anomalies, risk analysis, business advice, formulas, column meanings, or natural conversations — ALWAYS provide a complete, clear, and direct answer based on the data.
 
 Rules:
-1. Always calculate accurately using the provided rows and columns. Never make up numbers.
-2. If the user greets you or asks generally ("hi", "hello", "kya kar sakte ho", "explain this data"), provide a warm response in the matching language summarizing the table (number of rows, key columns, and sample questions they can ask).
-3. If the user asks for aggregations, counts, sums, averages, min, max, top/bottom rankings, grouping, or percentages: calculate the exact values directly from the provided table rows.
-4. When relevant, provide a structured summary table in `columns` and `rows` (e.g. for rankings, group totals, or breakdowns).
-5. Explain your calculation method concisely in `method` (e.g. "Cloud AI direct calculation: Grouped by Severity and counted incidents across 100 rows").
-6. If the question cannot be answered from the provided data or is genuinely ambiguous, ask a polite clarification in `clarification` (in the user's language/Hinglish).
-7. Return strictly a JSON object with this exact schema:
+1. NEVER REFUSE TO ANSWER. Do not say you cannot perform an analysis. Use the provided table columns and rows to answer directly.
+2. DO NOT demand clarifications unless the user prompt is completely empty or meaningless. Even if a question is broad, open-ended, or asks for general thoughts, provide your best analysis, key findings, and summary using the data.
+3. Language Matching:
+   - If the user asks in Hinglish (Hindi in Roman script, e.g. "sabse zyada incidents kis port par hain?", "sheet kiske baare mein hai?", "kya risk dikh raha hai?", "summary batao", "kaunsa ip suspicious hai?"), reply in natural, fluent, friendly, and professional Hinglish!
+   - If the user asks in English, reply in English.
+   - If the user asks in Hindi (Devanagari), reply in Hindi.
+4. Calculations & Accuracy:
+   - When asked for numbers, counts, sums, averages, top/bottom ranks, or percentages, calculate them accurately from the provided table rows. Never make up random numbers.
+5. Structured Data:
+   - Whenever showing a breakdown, list, or ranking helps the user, provide structured data in `columns` and `rows`. If not applicable (e.g. general explanation or qualitative summary), provide empty lists `[]`.
+6. Schema: Always return strictly a JSON object with this exact schema:
 {
-  "answer": "Comprehensive, clear answer in the user's language (Hinglish/English) presenting the findings and exact calculations",
-  "value": "Key numerical or summary metric (e.g. 34, 75600.5, or null)",
-  "method": "Precise description of how the calculation was performed",
+  "answer": "Comprehensive, clear answer in the user's language (Hinglish/English) addressing everything they asked",
+  "value": "Key numerical or summary metric if applicable (or null)",
+  "method": "Brief description of the analysis performed (e.g. 'Cloud AI Data Analysis & Insights' or 'Count and group by Port')",
   "columns": ["Col1", "Col2"],
-  "rows": [["ValA", 10], ["ValB", 20]],
+  "rows": [["val1", 10]],
   "row_count": 100,
   "excluded_rows": 0,
   "source_rows": [1, 2, 3],
-  "filters": [{"column": "Col", "op": "eq", "value": "val"}],
+  "filters": [],
   "warnings": [],
   "clarification": null
 }
@@ -210,13 +212,45 @@ Return ONLY valid JSON.
 '''
 
 
+def robust_json_parse(content: str) -> dict:
+    if not content or not content.strip():
+        return {}
+    c = content.strip()
+    if c.startswith('```'):
+        c = re.sub(r'^```(?:json)?\s*', '', c)
+        c = re.sub(r'\s*```$', '', c).strip()
+    try:
+        return json.loads(c)
+    except Exception:
+        pass
+    try:
+        return json.loads(c, strict=False)
+    except Exception:
+        pass
+    m = re.search(r'"answer"\s*:\s*"((?:\\.|[^"\\])*)"', c)
+    if m:
+        try:
+            ans = json.loads(f'"{m.group(1)}"')
+            return {"answer": ans, "method": "Cloud AI Direct Analysis"}
+        except Exception:
+            return {"answer": m.group(1), "method": "Cloud AI Direct Analysis"}
+    clean_text = re.sub(r'[{}\[\]"]', ' ', c).strip()
+    return {"answer": clean_text or c, "method": "Cloud AI Direct Analysis"}
+
+
 def normalize_ai_result(data: dict, total_rows: int = 0) -> dict:
     if not isinstance(data, dict):
         data = {}
 
-    clarification = data.get("clarification")
-    if clarification and isinstance(clarification, str) and clarification.strip():
-        answer = clarification.strip()
+    raw_answer = data.get("answer")
+    raw_clarification = data.get("clarification")
+
+    # If answer is present, use it! Only use clarification if answer is completely missing.
+    if raw_answer and isinstance(raw_answer, str) and raw_answer.strip():
+        answer = raw_answer.strip()
+        is_clarification = False
+    elif raw_clarification and isinstance(raw_clarification, str) and raw_clarification.strip():
+        answer = raw_clarification.strip()
         is_clarification = True
     else:
         answer = str(data.get("answer") or "Analysis completed successfully.")
@@ -266,7 +300,7 @@ def normalize_ai_result(data: dict, total_rows: int = 0) -> dict:
     return {
         "answer": answer,
         "value": data.get("value"),
-        "method": str(data.get("method") or "Cloud AI Direct Calculation"),
+        "method": str(data.get("method") or "Cloud AI Direct Analysis"),
         "columns": columns,
         "rows": rows,
         "row_count": row_count,
@@ -278,7 +312,7 @@ def normalize_ai_result(data: dict, total_rows: int = 0) -> dict:
     }
 
 
-def prepare_table_payload(table: dict, max_rows: int = 500) -> dict:
+def prepare_table_payload(table: dict, max_rows: int = 1000) -> dict:
     columns = [{'name': c['name'], 'type': c['type'], 'formula': bool(c.get('formula'))} for c in table.get('columns', [])]
     all_rows = table.get('rows', [])
     total_rows = len(all_rows)
@@ -328,7 +362,7 @@ def generate_ai_answer(settings, question: str, table: dict, *, classification: 
                     temperature=0.1,
                 )
                 content = response.choices[0].message.content or '{}'
-                data = json.loads(content)
+                data = robust_json_parse(content)
                 result = normalize_ai_result(data, total_rows=table_payload['total_rows'])
                 usage = response.usage
                 metrics = {

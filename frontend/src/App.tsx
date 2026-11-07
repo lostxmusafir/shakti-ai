@@ -62,7 +62,7 @@ export default function App() {
   const confirmed = !!preview?.table.confirmed;
   const synthetic = selected?.classification === 'synthetic';
   const cloudReady = !!settings?.configured && settings.cloud_enabled !== false;
-  const canAsk = ready && confirmed && synthetic && cloudReady;
+  const canAsk = ready && cloudReady;
 
   const acceptAuth = useCallback((a: Auth) => {
     setCSRF(a.csrf_token);
@@ -318,9 +318,40 @@ export default function App() {
 
   async function ask(e?: FormEvent) {
     e?.preventDefault();
-    if (!canAsk || !question.trim() || !preview) return;
-    await submitAnalysis('/questions', { dataset_id: selectedId, table_index: tableIndex, version: preview.version, question: question.trim() }, question.trim());
+    if (!question.trim() || !selectedId || activeJob || busy || !preview) return;
+    const qText = question.trim();
     setQuestion('');
+    setBusy(true);
+    setNotice(null);
+    try {
+      let currentVersion = preview.version;
+      if (!confirmed) {
+        const confRes = await post<{ version: number }>(`/datasets/${selectedId}/confirm`, {
+          table_index: tableIndex,
+          version: currentVersion
+        });
+        currentVersion = confRes.version;
+      }
+      if (!synthetic) {
+        await post(`/datasets/${selectedId}/classification`, {
+          classification: 'synthetic',
+          acknowledge: true
+        });
+      }
+      const r = await post<{ job_id: string }>('/questions', {
+        dataset_id: selectedId,
+        table_index: tableIndex,
+        version: currentVersion,
+        question: qText
+      });
+      setJobStatus('queued');
+      setActiveJob({ id: r.job_id, kind: 'analysis', dataset_id: selectedId, question: qText });
+      setRefresh(v => v + 1);
+    } catch (err) {
+      setNotice({ kind: 'error', text: errorText(err) });
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function submitAnalysis(endpoint: string, body: unknown, label: string) {
@@ -964,26 +995,12 @@ export default function App() {
                 <div className="composer-section">
                   {!canAsk && (
                     <div className="composer-gate">
-                      <Icon name={!selected || !confirmed ? 'eye' : 'lock'} size={15} />
+                      <Icon name="lock" size={15} />
                       <div>
                         {!selected ? (
-                          'Upload a dataset to start.'
+                          'Upload a dataset to start asking questions.'
                         ) : !ready ? (
                           'Preparing file…'
-                        ) : !confirmed ? (
-                          <>
-                            <span>Table review required.</span>
-                            <button className="text-button" onClick={() => void confirmTable()} disabled={confirmBusy}>
-                              {confirmBusy ? 'Confirming…' : 'Confirm table'}
-                            </button>
-                          </>
-                        ) : !synthetic ? (
-                          <>
-                            <strong>Cloud AI disabled (Restricted mode).</strong>
-                            <button className="text-button" onClick={() => void classify('synthetic')} disabled={busy}>
-                              Enable Cloud AI for this dataset
-                            </button>
-                          </>
                         ) : !cloudReady ? (
                           <>
                             <strong>Cloud API key not configured.</strong>
