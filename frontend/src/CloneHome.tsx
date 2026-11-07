@@ -39,7 +39,7 @@ export default function CloneHome({
   return (
     <section className="clone-welcome">
       <div className="clone-status-pill">
-        <span>Zydrakon AI · SQLite + Cloud AI · English & Hinglish</span>
+        <span>Microsoft Copilot Experience · Excel & Spreadsheets</span>
       </div>
 
       <div className="clone-greeting-block">
@@ -49,8 +49,8 @@ export default function CloneHome({
 
       <div className="clone-composer">
         <textarea
-          aria-label="Ask a question about your data in English or Hinglish"
-          placeholder="Ask in English or Hinglish (e.g. Sabse zyada incidents kis port par hain?)"
+          aria-label="Ask Copilot about your spreadsheet"
+          placeholder="Ask Copilot anything about your spreadsheet or formulas (e.g. Sabse zyada sales kiski hai? ya formula batao)"
           value={draft}
           onChange={e => setDraft(e.target.value)}
           maxLength={2000}
@@ -59,7 +59,7 @@ export default function CloneHome({
         <div className="clone-composer-bar">
           <span className="model-tag">
             <Icon name="cloud" size={13} />
-            <span>OpenAI Responses · Cloud AI</span>
+            <span>Copilot in Excel · Cloud AI</span>
           </span>
           <button
             aria-label="Start analysis"

@@ -573,7 +573,7 @@ export default function App() {
                 <span>{showData ? 'Focus on chat' : 'Show data preview'}</span>
               </button>
             )}
-            <span className="pilot-badge">SQLITE</span>
+            <span className="pilot-badge">EXCEL COPILOT</span>
             <button className="connection-state" onClick={() => setShowSettings(true)}>
               <span className={`status-dot ${cloudReady ? 'online' : 'offline'}`} />
               <span>{cloudReady ? 'Cloud AI Ready' : 'Local Calculations'}</span>
@@ -916,10 +916,10 @@ export default function App() {
                 {messages.length === 0 && !activeJob ? (
                   <div className="assistant-empty">
                     <span className="clone-spark-icon" style={{ fontSize: '32px', color: '#B6613C' }}>✳</span>
-                    <h3>{mode === 'chat' ? 'Ask questions about your data' : 'Run deterministic calculations'}</h3>
+                    <h3>{mode === 'chat' ? 'Copilot in Excel — Ask anything about your data' : 'Run deterministic calculations'}</h3>
                     <p>
                       {mode === 'chat'
-                        ? 'Ask for totals, top/bottom ranks, averages, group totals, or anomalies. Every answer is computed directly on the backend.'
+                        ? 'Ask for totals, trends, Excel formulas, summaries, or anomalies. Copilot analyzes your full spreadsheet directly.'
                         : 'Choose an aggregation operation, column, and filters. Results compute locally on the full table.'}
                     </p>
                     {mode === 'chat' && (

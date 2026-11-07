@@ -18,9 +18,9 @@ export default function ResultCard({result, onRetry}:{result:Result; onRetry?:()
   <div className="result-label">
    <div className="result-author">
      <span className="clone-spark-icon" aria-hidden="true">✳</span>
-     <strong>Zydrakon AI</strong>
+     <strong>Copilot · Excel Assistant</strong>
    </div>
-   <span className="verified-tag"><Icon name="check" size={12}/>{(result as any).engine === 'cloud' || result.method?.toLowerCase().includes('cloud') ? 'Calculated by Cloud AI' : 'Calculated locally'}</span>
+   <span className="verified-tag"><Icon name="check" size={12}/>{(result as any).engine === 'cloud' || result.method?.toLowerCase().includes('copilot') || result.method?.toLowerCase().includes('cloud') ? 'Copilot for Excel' : 'Calculated locally'}</span>
   </div>
 
   <p className="answer-text">{result.answer}</p>
